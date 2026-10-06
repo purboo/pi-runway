@@ -1,0 +1,37 @@
+{
+  "name": "pi-runway",
+  "version": "0.1.0",
+  "description": "One line. Zero config. Silent until it matters — then it tells you how many turns you have left.",
+  "type": "module",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "footer",
+    "statusline"
+  ],
+  "files": [
+    "index.ts",
+    "src"
+  ],
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && bun test",
+    "link-pi": "D=\"$(dirname \"$(readlink -f \"$(command -v pi)\")\")/../../..\" && mkdir -p node_modules/@earendil-works && for p in pi-ai pi-coding-agent pi-tui; do ln -sfn \"$(cd \"$D/$p\" && pwd)\" node_modules/@earendil-works/$p; done"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "typescript": "5"
+  }
+}
