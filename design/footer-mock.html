@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>pi footer — 设计稿</title>
+<style>
+  :root {
+    /* 近似 pi 内置 dark 主题（okhsl → hex 估算） */
+    --bg: #1b1c22;
+    --page: #131418;
+    --text: #e1e2e6;
+    --muted: #a3a7b0;
+    --dim: #82878f;
+    --faint: #4a4e58;
+    --accent: #c49be0;
+    --warning: #dcbc5c;
+    --error: #ef8a78;
+    --success: #6fcf9f;
+    --border: #7d8ee0;
+    --userBg: #262c4a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 40px 80px;
+    background: var(--page); color: var(--text);
+    font: 14px/1.5 -apple-system, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 40px 0 6px; color: var(--accent); }
+  p.note { color: var(--muted); margin: 0 0 14px; max-width: 900px; }
+  code { font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace; color: var(--accent); }
+
+  .term {
+    background: var(--bg); border-radius: 8px; padding: 12px 14px;
+    font-family: "JetBrains Mono", "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    font-size: 13px; line-height: 1.45;
+    box-shadow: 0 0 0 1px #2a2c35, 0 8px 24px rgba(0,0,0,.35);
+    display: inline-block; overflow: hidden;
+  }
+  .row { white-space: pre; height: 1.45em; }
+  .label { font-family: inherit; color: var(--dim); font-size: 12px; margin: 14px 0 4px; }
+  .grid { display: grid; grid-template-columns: max-content max-content; gap: 6px 16px; align-items: center; }
+  .grid .tag { color: var(--muted); font-size: 12px; text-align: right; }
+
+  .t { color: var(--text); } .m { color: var(--muted); } .d { color: var(--dim); } .f { color: var(--faint); }
+  .w { color: var(--warning); } .e { color: var(--error); } .a { color: var(--accent); } .s { color: var(--success); }
+  .b { color: var(--border); }
+  .user { background: var(--userBg); }
+
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+    background: #1b1c22; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; max-width: 1100px;
+    font-size: 13px; color: var(--muted);
+  }
+  .controls label { display: inline-flex; gap: 6px; align-items: center; }
+  .controls input[type=range] { width: 160px; }
+  .controls output { color: var(--text); min-width: 3ch; display: inline-block; font-variant-numeric: tabular-nums; }
+  .ruler { color: var(--faint); }
+</style>
+</head>
+<body>
+
+<h1>pi footer — 设计稿</h1>
+<p class="note">一行 · 零配置 · 暗舱原则（平时全 dim，出事才上色）· 零图标（只用 <code>()*━─≈+</code>）· 通用（不依赖特定 provider/模型）。颜色为 pi 内置 dark 主题近似值。</p>
+
+<h2>① 交互模拟器</h2>
+<p class="note">拖动宽度看逐级降级；拖动 context 看黄/红与 <code>≈N turns</code>；切换状态看运行中计时与本次花费。</p>
+<div class="controls">
+  <label>宽度 <input id="cWidth" type="range" min="20" max="140" value="100"><output id="oWidth"></output></label>
+  <label>context <input id="cCtx" type="range" min="0" max="100" value="38"><output id="oCtx"></output>%</label>
+  <label>状态
+    <select id="cState">
+      <option value="idle">空闲</option>
+      <option value="running">运行中</option>
+      <option value="after">运行后</option>
+      <option value="compacting">压缩中</option>
+    </select>
+  </label>
+  <label>扩展状态数 <input id="cExt" type="range" min="0" max="4" value="1"><output id="oExt"></output></label>
+  <label><input id="cDirty" type="checkbox" checked> 有改动 *</label>
+  <label><input id="cSub" type="checkbox"> 订阅</label>
+  <label><input id="cRouted" type="checkbox"> 路由模型</label>
+  <label><input id="cThink" type="checkbox" checked> thinking</label>
+  <label><input id="cGit" type="checkbox" checked> 在 git 仓库</label>
+</div>
+<div class="term" id="sim"></div>
+
+<h2>② 原生 footer vs 新 footer</h2>
+<p class="note">同样信息量下：3 行 → 1 行；去掉 token 分项（并非所有 provider 都报 cache）；警告只在需要时出现。</p>
+<div class="label">pi 原生（100 列）</div>
+<div class="term" id="native"></div>
+<div class="label">新设计（100 列）</div>
+<div class="term" id="ours"></div>
+
+<h2>③ 各状态（100 列）</h2>
+<div class="term"><div class="grid" id="states"></div></div>
+
+<h2>④ 窄屏逐级降级（context 永不丢）</h2>
+<div class="term"><div class="grid" id="widths"></div></div>
+
+<script>
+// ---------- 渲染核心（与真实实现一致的思路：纯函数 state + width → spans） ----------
+const STATUSES = [
+  [{ t: "mcp:3", c: "d" }],
+  [{ t: "lsp ", c: "d" }, { t: "ok", c: "s" }],
+  [{ t: "ci ", c: "d" }, { t: "running", c: "w" }],
+  [{ t: "review:2", c: "d" }],
+];
+
+const BASE = {
+  git: true, repoPath: "pi-things/pi-footer", base: "pi-footer", branch: "main", dirty: true,
+  ext: 1, model: "claude-opus-4-6", short: "opus-4-6", thinking: "high", routed: false,
+  ctx: 38, growth: 5, turns: 6, cost: 0.42, delta: 0, sub: false,
+  state: "idle", elapsed: 83,
+};
+
+const len = (spans) => spans.reduce((n, s) => n + [...s.t].length, 0);
+const fmtCost = (v) => v < 0.01 ? "<$0.01" : "$" + (v < 100 ? v.toFixed(2) : Math.round(v));
+const fmtDelta = (v) => "+" + v.toFixed(2);
+const fmtTime = (s) => s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, "0")}s`;
+
+function severity(pct) { return pct >= 90 ? "e" : pct >= 70 ? "w" : null; }
+
+function runway(st) {
+  if (st.ctx < 70 || st.turns < 2 || st.growth <= 0) return null;
+  const n = Math.max(1, Math.floor((100 - st.ctx) / st.growth));
+  return `≈${n} turn${n === 1 ? "" : "s"}`;
+}
+
+// level: 0 = 最完整，越大越精简
+function build(st, level) {
+  const L = [], R = [];
+  const sev = severity(st.ctx);
+
+  // ---- 左：在哪 ----
+  if (level < 9) {
+    const path = level >= 2 ? st.base : (st.git ? st.repoPath : st.repoPath);
+    L.push({ t: path, c: "m" });
+    if (st.git && level < 6) {
+      L.push({ t: " (", c: "d" }, { t: st.branch, c: "d" });
+      if (st.dirty) L.push({ t: "*", c: "w" });
+      L.push({ t: ")", c: "d" });
+    }
+  }
+  // ---- 扩展状态 ----
+  const ext = STATUSES.slice(0, st.ext);
+  if (ext.length && level < 9) {
+    if (level < 1) {
+      ext.forEach((e) => { L.push({ t: "  ", c: "d" }, ...e); });
+    } else if (level < 5) {
+      L.push({ t: "  +" + ext.length, c: "d" });
+    }
+  }
+
+  // ---- 右：agent 状态 ----
+  if (st.state === "running" && level < 8) R.push({ t: fmtTime(st.elapsed), c: "m" }, { t: "    ", c: "d" });
+
+  if (level < 8) {
+    let model = level >= 7 ? st.short : st.model;
+    if (st.routed) {
+      R.push({ t: "auto → ", c: "d" });
+      model = level >= 7 ? "sonnet-4-5" : "claude-sonnet-4-5";
+    }
+    R.push({ t: model, c: "m" });
+    const think = st.routed ? "low" : st.thinking;
+    if (think && level < 5) R.push({ t: " " + think, c: "d" });
+    R.push({ t: "  ", c: "d" });
+  }
+
+  if (st.state === "compacting") {
+    if (level < 4) pushBar(R, st.ctx, level >= 3 ? 6 : 10, sev), R.push({ t: "  ", c: "d" });
+    R.push({ t: "compacting…", c: "m" });
+    return { L, R };
+  }
+
+  if (level < 4) { pushBar(R, st.ctx, level >= 3 ? 6 : 10, sev); R.push({ t: "  ", c: "d" }); }
+  R.push({ t: String(Math.round(st.ctx)).padStart(level < 9 ? 3 : 1) + "%", c: sev || "m" });
+  const rw = runway(st);
+  if (rw) R.push({ t: " " + rw, c: sev });
+
+  R.push({ t: "  ", c: "d" });
+  if (st.sub) R.push({ t: "sub", c: "d" });
+  else if (st.cost > 0) {
+    R.push({ t: fmtCost(st.cost), c: "m" });
+    if ((st.state === "running" || st.state === "after") && st.delta > 0 && level < 7)
+      R.push({ t: " " + fmtDelta(st.delta), c: "d" });
+  }
+  return { L, R };
+}
+
+function pushBar(R, pct, cells, sev) {
+  const filled = Math.max(0, Math.min(cells, Math.round((pct / 100) * cells)));
+  R.push({ t: "━".repeat(filled), c: sev || "m" }, { t: "─".repeat(cells - filled), c: "f" });
+}
+
+function render(st, width) {
+  for (let level = 0; level <= 9; level++) {
+    const { L, R } = build(st, level);
+    trimEnd(R);
+    const gap = L.length ? 2 : 0;
+    if (len(L) + gap + len(R) <= width) {
+      const pad = width - len(L) - len(R);
+      return [...L, { t: " ".repeat(pad), c: "d" }, ...R];
+    }
+  }
+  const { R } = build(st, 9); trimEnd(R);
+  return R; // 极端：仍超宽就让终端截断
+}
+function trimEnd(R) { while (R.length && /^\s+$/.test(R[R.length - 1].t)) R.pop(); }
+
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const html = (spans) => spans.map((s) => `<span class="${s.c || ""}">${esc(s.t)}</span>`).join("");
+const row = (inner, w) => `<div class="row" style="width:${w}ch">${inner}</div>`;
+
+// ---------- 场景：模拟一屏 pi ----------
+function chat(width) {
+  const hr = "─".repeat(width);
+  return [
+    row(`<span class="user">${esc(" 把 footer 改成一行，暗一点".padEnd(width))}</span>`, width),
+    row("", width),
+    row(`<span class="t">好的，我把 footer 收敛成一行：左边「在哪」，右边「agent 状态」。</span>`, width),
+    row("", width),
+    row(`<span class="b">${hr}</span>`, width),
+    row(`<span class="t">› </span><span class="d">输入消息…</span>`, width),
+    row(`<span class="b">${hr}</span>`, width),
+  ].join("");
+}
+
+function scenario(st, width) {
+  return chat(width) + row(html(render(st, width)), width);
+}
+
+// ---------- ① 模拟器 ----------
+const $ = (id) => document.getElementById(id);
+function sim() {
+  const width = +$("cWidth").value;
+  const ctx = +$("cCtx").value;
+  const state = $("cState").value;
+  $("oWidth").textContent = width; $("oCtx").textContent = ctx; $("oExt").textContent = $("cExt").value;
+  const st = {
+    ...BASE, ctx, state,
+    ext: +$("cExt").value, dirty: $("cDirty").checked, sub: $("cSub").checked,
+    routed: $("cRouted").checked, thinking: $("cThink").checked ? "high" : null, git: $("cGit").checked,
+    cost: 0.42 + (state === "idle" ? 0 : 0.04), delta: state === "idle" ? 0 : 0.04,
+  };
+  if (!st.git) { st.repoPath = "projects/scratch"; st.base = "scratch"; }
+  const ruler = "<div class='row ruler' style='width:" + width + "ch'>" +
+    Array.from({ length: width }, (_, i) => (i + 1) % 10 === 0 ? "|" : "·").join("") + "</div>";
+  $("sim").innerHTML = scenario(st, width) + ruler;
+}
+["cWidth", "cCtx", "cState", "cExt", "cDirty", "cSub", "cRouted", "cThink", "cGit"].forEach((id) =>
+  $(id).addEventListener("input", sim));
+sim();
+
+// ---------- ② 对比 ----------
+(function compare() {
+  const W = 100;
+  const l1 = "~/projects/pi-things/pi-footer (main)";
+  const left = "↑12k ↓8.4k R51k W1.4k CH96.9% $0.420 38.0%/200k (auto)";
+  const right = "(anthropic) claude-opus-4-6 • high";
+  const l2 = left + " ".repeat(W - left.length - right.length) + right;
+  $("native").innerHTML = chat(W) +
+    row(`<span class="d">${esc(l1)}</span>`, W) +
+    row(`<span class="d">${esc(l2)}</span>`, W) +
+    row(`<span class="d">mcp:3</span>`, W);
+  $("ours").innerHTML = scenario({ ...BASE, dirty: false }, W);
+})();
+
+// ---------- ③ 各状态 ----------
+(function states() {
+  const W = 100;
+  const cases = [
+    ["空闲", { ...BASE }],
+    ["运行中", { ...BASE, state: "running", ctx: 41, cost: 0.46, delta: 0.04 }],
+    ["运行后", { ...BASE, state: "after", ctx: 44, cost: 0.46, delta: 0.04 }],
+    ["吃紧 ≥70%", { ...BASE, ctx: 78, cost: 1.2 }],
+    ["危险 ≥90%", { ...BASE, ctx: 93, cost: 1.38 }],
+    ["压缩中", { ...BASE, state: "compacting", ctx: 93, cost: 1.38 }],
+    ["路由", { ...BASE, routed: true }],
+    ["订阅", { ...BASE, sub: true }],
+    ["干净 · thinking off", { ...BASE, dirty: false, thinking: null }],
+    ["非 git 目录", { ...BASE, git: false, repoPath: "projects/scratch", base: "scratch", ext: 0 }],
+  ];
+  $("states").innerHTML = cases.map(([tag, st]) =>
+    `<div class="tag">${tag}</div>${row(html(render(st, W)), W)}`).join("");
+})();
+
+// ---------- ④ 窄屏 ----------
+(function widths() {
+  const st = { ...BASE, ext: 2 };
+  $("widths").innerHTML = [120, 100, 80, 64, 52, 40, 30, 22].map((w) =>
+    `<div class="tag">${w} 列</div>${row(html(render(st, w)), w)}`).join("");
+})();
+</script>
+</body>
+</html>
