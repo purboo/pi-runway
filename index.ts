@@ -195,7 +195,8 @@ export default function runway(pi: ExtensionAPI) {
 		const window = usage?.contextWindow ?? 0;
 		const growth = runGrowth(ends);
 		const busy = animating();
-		const interrupt = busy ? keyText("app.interrupt") : "";
+		// pi spells the key "escape"; the keycap says "esc".
+		const interrupt = busy ? keyText("app.interrupt").replace(/\bescape\b/gi, "esc") : "";
 		return {
 			...displayPath(c?.cwd ?? process.cwd(), gitRoot, process.env.HOME),
 			branch: branch && !isDefaultBranch(branch) ? branch : undefined,
