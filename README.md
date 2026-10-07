@@ -27,7 +27,7 @@ There is nothing to configure.
 | | |
 |---|---|
 | `pi-footer` | Repo name, plus the subdirectory if you're in one (`pi-footer/src`). Outside git: the folder name. |
-| `⎇ feat/x` | Branch — only when you're not on the default branch. |
+| `⎇ feat/x` | Git branch. Its presence also tells you the folder is a repo. |
 | `*` | Uncommitted changes. |
 | `mcp 3` | Status text from other extensions (`ctx.ui.setStatus()`). |
 | `esc to interrupt` | Only while the agent works: the one thing you can do then. |
