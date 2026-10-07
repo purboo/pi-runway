@@ -4,7 +4,7 @@
 
 A footer for [pi](https://pi.dev) that replaces the built-in 2–3 line footer with a single line.
 
-![pi-runway](design/preview.png)
+![pi-runway](https://raw.githubusercontent.com/purboo/pi-runway/main/design/preview.png)
 
 ```
  pi-footer  main*  ·  mcp 3            1m23s  ·  Opus 4.6 high  ·  ━━━━━━━━━━ 38%  ·  $0.46 +0.04
