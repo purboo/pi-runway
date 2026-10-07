@@ -1,6 +1,6 @@
 {
   "name": "pi-runway",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "The editor frame tells you everything: where you are, the model, a context runway, and whose turn it is. Zero config, fast.",
   "type": "module",
   "license": "MIT",

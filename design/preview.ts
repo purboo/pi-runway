@@ -19,6 +19,7 @@ const base: View = {
 	dirty: true,
 	statuses: [],
 	model: "Sonnet 4.5",
+	thinking: "high",
 	state: "idle",
 	pct: 41,
 	cost: 1.2,

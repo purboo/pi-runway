@@ -17,7 +17,7 @@ There is nothing to configure.
 ## Reading it
 
 ```
-╭─ pi-footer  ⎇ feat/x* ──────────────────────────── esc to interrupt ── ◆ Sonnet 4.5 ─╮
+╭─ pi-footer  ⎇ feat/x* ─────────────────────── esc to interrupt ── ◆ Sonnet 4.5 high ─╮
 │ make it pop█                                                                          │
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╍╍╍╍────────── 78%  ≈4 turns  $1.20 ─╯
 ```
@@ -31,7 +31,7 @@ There is nothing to configure.
 | `*` | Uncommitted changes. |
 | `mcp 3` | Status text from other extensions (`ctx.ui.setStatus()`). |
 | `esc to interrupt` | Only while the agent works: the one thing you can do then. |
-| `◆ Sonnet 4.5` | The model. `◆` takes the color of the thinking level (the same color pi uses), and the level's name shows for 2 seconds after you change it. A provider prefix appears only when the same model is available from more than one provider. A routed virtual model shows as `auto → model`. |
+| `◆ Sonnet 4.5 high` | The model, followed by the thinking level, both in the level's color (the same color pi gives the editor border). Models that can't think show no level. A provider prefix appears only when the same model is available from more than one provider. A routed virtual model shows as `auto → model`. |
 
 **Bottom edge**
 
