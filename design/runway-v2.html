@@ -46,8 +46,9 @@ code{font:12.5px var(--mono);color:#cfc6f0;background:#22232b;padding:1px 5px;bo
 </head>
 <body>
 
-<h1>pi-runway 0.2 <small>context 表挪到你打字的地方 · 每次按键零计算</small></h1>
-<p class="lead">借 topping 的点子：context 用量画成一格一格的色块，放在输入框下边框的右端。但做法不同：颜色是连续渐变，不按档位跳；多出一段“虚影”，标出下一轮预计会用掉多少；按键时不做任何计算。</p>
+<h1>pi-runway 0.2 <small>信息全画在输入框的上下边框上 · footer 一行都不占 · 按键零计算</small></h1>
+<p class="lead">借 topping 的点子：信息嵌进输入框的上下边框，footer 不再单独占行；context 用量画成一格一格的色块，放在下边框右端。但做法不同：颜色连续渐变，不按档位跳；多一段“虚影”标出下一轮预计用量；按键时不做任何计算。</p>
+<p class="note">上边框：左边是“在哪”（目录、分支、其他扩展的状态），右边是模型和 thinking。下边框：左边是运行计时（只在运行中出现，紧挨光标），右边是费用和 context 表。pi 原本放在边框中间的“↑/↓ N more”滚动提示照常保留。</p>
 
 <!-- ───────────────────────── 1 · simulator ───────────────────────── -->
 <h2>① 模拟器</h2>
@@ -57,7 +58,7 @@ code{font:12.5px var(--mono);color:#cfc6f0;background:#22232b;padding:1px 5px;bo
   <label>状态 <select id="phase"><option value="idle">空闲</option><option value="running" selected>运行中</option><option value="compacting">压缩中</option><option value="compacted">刚压缩完</option></select></label>
   <label>thinking <select id="think"><option>off</option><option>minimal</option><option>low</option><option selected>medium</option><option>high</option><option>xhigh</option><option>max</option></select></label>
   <label>配色 <select id="pal"><option value="aurora" selected>aurora</option><option value="green">green</option><option value="mono">mono</option><option value="tinted">tinted</option></select></label>
-  <label>位置 <select id="dock"><option value="docked" selected>输入框边框（推荐）</option><option value="footer">只在 footer</option></select></label>
+  <label>位置 <select id="dock"><option value="border" selected>全在输入框边框（推荐，省一行）</option><option value="docked">表在边框 + footer 一行</option><option value="footer">全在 footer</option></select></label>
   <label><input type="checkbox" id="ghost" checked> 下一轮虚影</label>
   <label><input type="checkbox" id="win"> 显示窗口大小</label>
 </div>
@@ -74,7 +75,7 @@ code{font:12.5px var(--mono);color:#cfc6f0;background:#22232b;padding:1px 5px;bo
 </div>
 
 <!-- ───────────────────────── 3 · states ───────────────────────── -->
-<h2>③ 七种状态 · 120 列</h2>
+<h2>③ 八种状态 · 120 列</h2>
 <p class="note">平时只有一条安静的表。70% 起数字变黄并给出剩余轮数，90% 变红。压缩时整条表有一道光扫过。</p>
 <div class="grid" id="states"></div>
 
@@ -85,7 +86,7 @@ code{font:12.5px var(--mono);color:#cfc6f0;background:#22232b;padding:1px 5px;bo
 
 <!-- ───────────────────────── 5 · widths ───────────────────────── -->
 <h2>⑤ 窄终端 · 运行中</h2>
-<p class="note">格数随宽度递减：20 → 14 → 10 → 6 → 只剩数字。footer 行按原有顺序让位，最后只留费用。</p>
+<p class="note">两条边框各自让位：上边框依次收起 thinking、状态、完整路径、分支、模型；下边框依次收起费用增量、计时、色块格数，最后只留百分比。</p>
 <div class="term" id="widths"></div>
 
 <!-- ───────────────────────── 6 · perf ───────────────────────── -->
@@ -98,14 +99,14 @@ code{font:12.5px var(--mono);color:#cfc6f0;background:#22232b;padding:1px 5px;bo
 <tr><td>费用</td><td>—</td><td>每条消息到来时累加；只在载入 session 或切换分支时整体扫一遍</td></tr>
 <tr><td>git</td><td class="bad">定时起进程跑 git status（约 0.18 s / 20 s）</td><td class="good">分支名用 pi 自带的监听；脏标记只在 write / edit / bash 工具结束后查一次，带防抖</td></tr>
 <tr><td>定时器</td><td>max thinking 时彩虹边框持续动画（约 14 秒一圈），另有状态滑入动画</td><td>只在运行中每秒跳一次（计时变了才重绘）；只在压缩期间跑扫光动画</td></tr>
-<tr><td>输入框</td><td>整个编辑器重新包一层盒子，宽度缩 6 列</td><td>只替换编辑器的 renderBottomBorder()：不缩宽度、不加侧边、不碰按键处理；找不到这个方法就自动把表放回 footer</td></tr>
+<tr><td>输入框</td><td>整个编辑器重新包一层盒子，加左右边、宽度缩 6 列</td><td>只替换编辑器的 renderTopBorder() / renderBottomBorder()：不缩宽度、不加侧边、不碰按键处理，footer 返回 0 行。别的扩展换掉了编辑器、没有这两个方法时，自动退回成 footer 一行</td></tr>
 <tr><td>验收标准</td><td></td><td>测试里造一个 10,000 条记录的 session，连续渲染 1,000 次总耗时 &lt; 5 ms</td></tr>
 </table>
 
 <!-- ───────────────────────── 7 · decisions ───────────────────────── -->
 <h2>⑦ 需要你拍板</h2>
 <ol class="dec">
-  <li><b>位置：</b>表放在输入框下边框（推荐，离视线最近）还是只放 footer（完全不碰编辑器）？</li>
+  <li><b>位置：</b>全部放在输入框边框（推荐，省一行）、只把表放边框（footer 留一行），还是全放 footer（完全不碰编辑器）？</li>
   <li><b>配色：</b>aurora / green / mono / tinted 选一套。我倾向 <b>aurora</b>：空闲时也好看，越热越红的意思也清楚。tinted 跟着 thinking 等级变色，但 xhigh、max 本身就是粉红色，会被看成报警。</li>
   <li><b>下一轮虚影：</b>一直显示，还是只在 70% 以上显示？</li>
   <li><b>窗口大小：</b>数字写成 <code>41%</code> 还是 <code>41%/1M</code>？</li>
@@ -183,14 +184,55 @@ function bottomBorder(st,W,o,frame){
 }
 
 // ── footer line ──
+function whereParts(st,lv){
+  const sep=T(lv>=1?" · ":"  ·  ",C.track), L=[];
+  L.push(T(lv>=2?st.base:st.path,C.text));
+  if(lv<5){L.push(T("  "));L.push(T(st.branch,C.accent));if(st.dirty)L.push(T("*",C.warning));}
+  if(lv<3&&st.statuses.length){L.push(sep);L.push(T(lv>=1&&st.statuses.length>1?`+${st.statuses.length}`:st.statuses.join(" · "),C.dim));}
+  return L;
+}
+
+// ── border mode: everything on the editor's two borders, footer renders 0 lines ──
+function borderLine(W,bc,L,R,mid){
+  const lp=L.length?[T("── ",bc),...L,T(" ",bc)]:[];
+  const rp=R.length?[T(" ",bc),...R,T(" ──",bc)]:[T("──",bc)];
+  const run=W-width(lp)-width(rp);
+  if(run<3)return null;
+  if(mid&&run>=width(mid)+6){const a=Math.floor((run-width(mid))/2);return[...lp,T("─".repeat(a),bc),...mid,T("─".repeat(run-a-width(mid)),bc),...rp];}
+  return[...lp,T("─".repeat(run),bc),...rp];
+}
+function frameTop(st,W){
+  const bc=THINK[st.think], up=st.scrollUp?[T(` ↑ ${st.scrollUp} more `,bc)]:null;
+  for(let lv=0;lv<12;lv++){
+    const L=lv<9?whereParts(st,lv):[];
+    const R=lv<7?[T(st.model,C.text),...(lv<4&&st.think!=="off"?[T(" "),T(st.think,THINK[st.think])]:[])]:[];
+    const r=borderLine(W,bc,L,R,up);if(r)return r;
+  }
+  return[T("─".repeat(W),bc)];
+}
+function frameBottom(st,W,o,frame){
+  const bc=THINK[st.think], down=st.scrollDown?[T(` ↓ ${st.scrollDown} more `,bc)]:null;
+  for(let lv=0;lv<8;lv++){
+    const L=st.phase==="running"&&lv<5?[T(st.elapsed,C.mdLink)]:[];
+    const R=[];
+    if((st.cost>=.005||st.sub)&&lv<6){
+      R.push(T(st.sub?"sub":`$${st.cost.toFixed(2)}`,C.syntaxString));
+      if(st.phase==="running"&&st.delta&&lv<2)R.push(T(` +${st.delta.toFixed(2)}`,C.dim));
+      R.push(T("  "));
+    }
+    const n=lv<3?cellsFor(W):lv<4?6:0;
+    if(n)R.push(...gauge(st,n,o,frame),T(" "));
+    R.push(...label(st,o,lv>=2));
+    const r=borderLine(W,bc,L,R,down);if(r)return r;
+  }
+  return[T("─".repeat(W),bc)];
+}
+
 function footer(st,W,o,frame){
   const docked=o.dock==="docked";
   for(let lv=0;lv<12;lv++){
     const sep=T(lv>=1?" · ":"  ·  ",C.track);
-    const L=[],R=[];
-    L.push(T(lv>=2?st.base:st.path,C.text));
-    if(lv<5){L.push(T("  "));L.push(T(st.branch,C.accent));if(st.dirty)L.push(T("*",C.warning));}
-    if(lv<3&&st.statuses.length){L.push(sep);L.push(T(lv>=1&&st.statuses.length>1?`+${st.statuses.length}`:st.statuses.join(" · "),C.dim));}
+    const L=whereParts(st,lv),R=[];
     const parts=[];
     if(st.phase==="running"&&lv<6)parts.push([T(st.elapsed,C.mdLink)]);
     if(lv<7){const m=[T(st.model,C.text)];if(lv<4&&st.think!=="off")m.push(T(" "),T(st.think,THINK[st.think]));parts.push(m);}
@@ -228,6 +270,7 @@ const STATES=[
   ["压缩中",{phase:"compacting",pct:93,cost:1.38}],
   ["刚压缩完（下次回复前未知）",{phase:"compacted",pct:null,cost:1.41}],
   ["新 session（还没有预测数据）",{pct:2,next:null,cost:.01}],
+  ["输入框内容超出，上下都有滚动提示",{phase:"running",elapsed:"2m05s",pct:41,next:4,cost:.46,delta:.04,think:"high",scrollUp:4,scrollDown:2}],
 ];
 
 function screen(st,W,o,frame,{transcript=false,editor="",top=true}={}){
@@ -242,11 +285,12 @@ function screen(st,W,o,frame,{transcript=false,editor="",top=true}={}){
     else if(st.phase==="compacting")rows.push(html([T(" ⠹ ",C.accent),T("Compacting context…",C.muted)],W));
     else rows.push(html([T("")],W));
   }
-  const bc=THINK[st.think];
-  if(top)rows.push(html([T("─".repeat(W),bc)],W));
+  const bc=THINK[st.think], border=o.dock==="border";
+  if(border)rows.push(html(frameTop(st,W),W));
+  else if(top)rows.push(html([T("─".repeat(W),bc)],W));
   rows.push(html([T(editor,C.text),{cell:1,c:"#c9ccd3"}],W).replace(/linear-gradient\(90deg,#c9ccd3 0 62.5%,transparent 62.5%\)/,"#c9ccd3"));
-  rows.push(html(bottomBorder(st,W,o,frame),W));
-  rows.push(html(footer(st,W,o,frame),W));
+  if(border)rows.push(html(frameBottom(st,W,o,frame),W));
+  else{rows.push(html(bottomBorder(st,W,o,frame),W));rows.push(html(footer(st,W,o,frame),W));}
   return rows.join("");
 }
 
@@ -266,7 +310,7 @@ document.querySelectorAll("#ctrl input,#ctrl select").forEach(e=>e.addEventListe
 setInterval(()=>{if($("phase").value==="compacting"){frame++;hero();}},90);
 hero();
 
-const DEF={pal:"aurora",dock:"docked",ghost:true,win:false};
+const DEF={pal:"aurora",dock:"border",ghost:true,win:false};
 
 // ── anatomy ──
 {
