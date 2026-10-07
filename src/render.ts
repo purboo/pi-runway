@@ -1,11 +1,18 @@
 /**
  * Pure layout: View + width → styled segments for exactly one line.
  * No pi imports, so it is testable in isolation; the caller injects a width measure.
+ *
+ * Visual language (three tones + alarm):
+ *   text   — the one anchor: model name
+ *   muted  — values: where, numbers
+ *   dim    — qualifiers: branch, thinking level, run delta, statuses
+ *   faint  — structure: separators, empty gauge track
+ *   warning/error — only when something needs attention
  */
 
-export type Tone = "dim" | "muted" | "warning" | "error";
+export type Tone = "text" | "muted" | "dim" | "faint" | "warning" | "error";
 
-/** A run of text. `tone` undefined = pre-styled text from another extension, emitted as-is. */
+/** A run of text. `tone` undefined = plain or pre-styled text (other extensions' statuses, padding). */
 export interface Seg {
 	text: string;
 	tone?: Tone;
@@ -20,16 +27,17 @@ export interface View {
 	dirty: boolean;
 	/** Sanitized texts from ctx.ui.setStatus(), may contain ANSI. */
 	statuses: string[];
+	/** Display name of the selected model. */
 	model?: string;
 	thinking?: string;
-	/** Physical model the virtual model routed to. */
+	/** Display name of the physical model a virtual model routed to. */
 	routed?: string;
 	/** Context usage 0–100, null when unknown (right after compaction). */
 	ctxPercent: number | null;
 	/** Estimated runs until the context window is full. */
 	turnsLeft?: number;
 	cost: number;
-	/** Cost of the current (or last) run. */
+	/** Cost of the current run. */
 	delta: number;
 	sub: boolean;
 	phase: "idle" | "running" | "compacting";
@@ -38,10 +46,41 @@ export interface View {
 
 export type Measure = (text: string) => number;
 
-const GAP = "  ";
-export const MAX_LEVEL = 9;
+export interface Style {
+	/**
+	 * Whether the theme draws `faint` visibly differently from `muted`. When it does not (16-color
+	 * fallbacks render every gray as SGR 2), the empty gauge track switches to a thinner glyph so the
+	 * fill stays readable by shape alone.
+	 */
+	faintDistinct: boolean;
+}
+const DEFAULT_STYLE: Style = { faintDistinct: true };
 
-export function severity(percent: number | null): Tone | undefined {
+const SEP_AIRY = "  ·  ";
+const SEP_TIGHT = " · ";
+const BRANCH_GAP = "  ";
+const PAD = 1;
+const GAUGE = 10;
+const GAUGE_SHORT = 6;
+
+/** Degradation thresholds: a feature is reduced once `level >= N`. Context % and cost are never dropped. */
+const L = {
+	tightSep: 1,
+	statusCount: 2,
+	basename: 3,
+	shortGauge: 4,
+	noGauge: 5,
+	noThinking: 6,
+	noStatuses: 6,
+	noBranch: 7,
+	shortModel: 8,
+	noModel: 9,
+	noElapsed: 9,
+	noPath: 10,
+} as const;
+export const MAX_LEVEL = 10;
+
+export function severity(percent: number | null): "warning" | "error" | undefined {
 	if (percent === null) return undefined;
 	if (percent >= 90) return "error";
 	if (percent >= 70) return "warning";
@@ -60,94 +99,92 @@ export function formatDuration(ms: number): string {
 	return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}m`;
 }
 
-export function formatTurns(n: number): string {
-	if (n < 1) return "<1 turn";
-	return n === 1 ? "≈1 turn" : `≈${n} turns`;
+export function formatTurns(n: number, short = false): string {
+	const s = n < 1 ? "<1 turn" : n === 1 ? "≈1 turn" : `≈${n} turns`;
+	return short ? s : `${s} left`;
 }
 
-/** "claude-opus-4-6-20250514" → "opus-4-6"; "openai/gpt-5" → "gpt-5". */
-export function shortModel(id: string): string {
-	return id
+/** Drop vendor prefixes and date stamps: "Claude Sonnet 4.5" → "Sonnet 4.5", "openai/gpt-5-20250101" → "gpt-5". */
+export function shortModel(name: string): string {
+	return name
 		.replace(/^.*\//, "")
 		.replace(/-\d{8}$/, "")
-		.replace(/^claude-/, "");
+		.replace(/^claude[- ]/i, "");
 }
 
-function bar(percent: number, cells: number, tone: Tone | undefined): Seg[] {
-	const filled = Math.max(0, Math.min(cells, Math.round((percent / 100) * cells)));
+function gauge(percent: number, cells: number, tone: Tone | undefined, style: Style): Seg[] {
+	const filled = percent < 0.5 ? 0 : Math.max(1, Math.min(cells, Math.round((percent / 100) * cells)));
 	return [
 		{ text: "━".repeat(filled), tone: tone ?? "muted" },
-		{ text: "─".repeat(cells - filled), tone: "dim" },
+		{ text: (style.faintDistinct ? "━" : "─").repeat(cells - filled), tone: "faint" },
 	];
 }
 
-/**
- * Degradation levels (0 = everything):
- * 1 statuses → +N · 2 path → basename · 3 bar 10→6 · 4 bar off · 5 thinking and +N off ·
- * 6 branch off · 7 short model, delta off · 8 model and elapsed off · 9 path off.
- * Context percent and cost are never dropped.
- */
-export function build(v: View, level: number): { left: Seg[][]; right: Seg[][] } {
+export function build(v: View, level: number, style: Style = DEFAULT_STYLE): { left: Seg[][]; right: Seg[][]; sep: string } {
+	const at = (n: number) => level >= n;
 	const left: Seg[][] = [];
 	const right: Seg[][] = [];
 	const sev = severity(v.ctxPercent);
 
-	if (level < 9) {
-		const where: Seg[] = [{ text: level >= 2 ? v.base : v.path, tone: "muted" }];
-		if (v.branch && level < 6) {
-			where.push({ text: ` (${v.branch}`, tone: "dim" });
+	if (!at(L.noPath)) {
+		const where: Seg[] = [{ text: at(L.basename) ? v.base : v.path, tone: "muted" }];
+		if (v.branch && !at(L.noBranch)) {
+			where.push({ text: `${BRANCH_GAP}${v.branch}`, tone: "dim" });
 			if (v.dirty) where.push({ text: "*", tone: "warning" });
-			where.push({ text: ")", tone: "dim" });
 		}
 		left.push(where);
 	}
-	if (v.statuses.length > 0) {
-		if (level < 1) for (const s of v.statuses) left.push([{ text: s }]);
-		else if (level < 5) left.push([{ text: `+${v.statuses.length}`, tone: "dim" }]);
+	if (v.statuses.length > 0 && !at(L.noStatuses)) {
+		// "+1" says less than the status itself; only collapse when it saves room.
+		if (!at(L.statusCount) || v.statuses.length === 1) for (const s of v.statuses) left.push([{ text: s }]);
+		else left.push([{ text: `+${v.statuses.length}`, tone: "dim" }]);
 	}
 
-	if (v.phase === "running" && level < 8 && v.elapsedMs >= 1000) {
+	if (v.phase === "running" && v.elapsedMs >= 1000 && !at(L.noElapsed)) {
 		right.push([{ text: formatDuration(v.elapsedMs), tone: "muted" }]);
 	}
-	if (v.model && level < 8) {
+	if (v.model && !at(L.noModel)) {
 		const model: Seg[] = [];
-		if (level >= 7) {
-			model.push({ text: shortModel(v.routed ?? v.model), tone: "muted" });
+		if (at(L.shortModel)) {
+			model.push({ text: shortModel(v.routed ?? v.model), tone: "text" });
 		} else if (v.routed) {
-			model.push({ text: `${v.model} → `, tone: "dim" }, { text: v.routed, tone: "muted" });
+			model.push({ text: `${v.model} → `, tone: "dim" }, { text: v.routed, tone: "text" });
 		} else {
-			model.push({ text: v.model, tone: "muted" });
+			model.push({ text: v.model, tone: "text" });
 		}
-		if (v.thinking && level < 5) model.push({ text: ` ${v.thinking}`, tone: "dim" });
+		if (v.thinking && !at(L.noThinking)) model.push({ text: ` ${v.thinking}`, tone: "dim" });
 		right.push(model);
 	}
 
 	const ctx: Seg[] = [];
-	if (level < 4 && v.ctxPercent !== null) ctx.push(...bar(v.ctxPercent, level >= 3 ? 6 : 10, sev), { text: " " });
+	if (!at(L.noGauge) && v.ctxPercent !== null) {
+		ctx.push(...gauge(v.ctxPercent, at(L.shortGauge) ? GAUGE_SHORT : GAUGE, sev, style), { text: " " });
+	}
 	if (v.phase === "compacting") {
 		ctx.push({ text: "compacting…", tone: "muted" });
 		right.push(ctx);
-		return { left, right };
-	}
-	const pct = v.ctxPercent === null ? "?" : String(Math.round(v.ctxPercent));
-	ctx.push({ text: `${pct.padStart(3)}%`, tone: sev ?? "muted" });
-	if (sev && v.turnsLeft !== undefined) ctx.push({ text: ` ${formatTurns(v.turnsLeft)}`, tone: sev });
-	right.push(ctx);
+	} else {
+		ctx.push({ text: v.ctxPercent === null ? "?%" : `${Math.round(v.ctxPercent)}%`, tone: sev ?? "muted" });
+		if (sev && v.turnsLeft !== undefined) ctx.push({ text: `  ${formatTurns(v.turnsLeft, at(L.noPath))}`, tone: sev });
+		right.push(ctx);
 
-	if (v.sub) {
-		right.push([{ text: "sub", tone: "dim" }]);
-	} else if (v.cost > 0) {
-		const cost: Seg[] = [{ text: formatCost(v.cost), tone: "muted" }];
-		if (v.delta >= 0.005 && level < 7) cost.push({ text: ` +${v.delta.toFixed(2)}`, tone: "dim" });
-		right.push(cost);
+		if (v.sub) {
+			right.push([{ text: "sub", tone: "dim" }]);
+		} else if (v.cost >= 0.005) {
+			const cost: Seg[] = [{ text: formatCost(v.cost), tone: "muted" }];
+			if (v.phase === "running" && v.delta >= 0.005 && !at(L.shortModel)) {
+				cost.push({ text: ` +${v.delta.toFixed(2)}`, tone: "dim" });
+			}
+			right.push(cost);
+		}
 	}
-	return { left, right };
+	return { left, right, sep: at(L.tightSep) ? SEP_TIGHT : SEP_AIRY };
 }
 
-function join(groups: Seg[][]): Seg[] {
+function join(groups: Seg[][], sep: string): Seg[] {
 	const out: Seg[] = [];
 	groups.forEach((g, i) => {
-		if (i > 0) out.push({ text: GAP, tone: "dim" });
+		if (i > 0) out.push({ text: sep, tone: "faint" });
 		out.push(...g);
 	});
 	return out;
@@ -156,18 +193,21 @@ function join(groups: Seg[][]): Seg[] {
 const widthOf = (segs: Seg[], measure: Measure) => segs.reduce((n, s) => n + measure(s.text), 0);
 
 /** Most informative single line that fits `width`. May still overflow at absurd widths; caller truncates. */
-export function layout(v: View, width: number, measure: Measure): Seg[] {
+export function layout(v: View, width: number, measure: Measure, style: Style = DEFAULT_STYLE): Seg[] {
+	const pad = width >= 40 ? PAD : 0;
+	const inner = width - 2 * pad;
+	const edge: Seg = { text: " ".repeat(pad) };
 	let last: Seg[] = [];
 	for (let level = 0; level <= MAX_LEVEL; level++) {
-		const { left, right } = build(v, level);
-		const l = join(left);
-		const r = join(right);
+		const { left, right, sep } = build(v, level, style);
+		const l = join(left, sep);
+		const r = join(right, sep);
 		const lw = widthOf(l, measure);
 		const rw = widthOf(r, measure);
-		const gap = lw > 0 && rw > 0 ? GAP.length : 0;
+		const gap = lw > 0 && rw > 0 ? SEP_AIRY.length : 0;
 		last = r.length > 0 ? r : l;
-		if (lw + gap + rw <= width) {
-			return [...l, { text: " ".repeat(width - lw - rw) }, ...r];
+		if (lw + gap + rw <= inner) {
+			return [edge, ...l, { text: " ".repeat(inner - lw - rw) }, ...r, edge];
 		}
 	}
 	return last;
