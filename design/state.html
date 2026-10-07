@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>pi-runway · 状态与装饰</title>
+<style>
+:root{--bg:#18191e;--page:#0f1014;--ink:#c9ccd3;--sub:#7e888e;--hl:#a798d7;--mono:'JetBrains Mono','Iosevka','DejaVu Sans Mono',ui-monospace,monospace,'Hack Nerd Font Mono'}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.65 -apple-system,'Inter','Noto Sans CJK SC',sans-serif;padding:28px 32px 60px;width:max-content;min-width:1280px}
+h1{font-size:22px;margin:0 0 6px;color:#e6e7ea;font-weight:650}
+h2{font-size:15px;color:var(--hl);margin:34px 0 6px;font-weight:600}
+h3{font-size:13px;color:#e1e3e7;margin:0 0 6px;font-weight:600}
+p.note{margin:4px 0 10px;color:#8a9097;font-size:13px;max-width:1040px}
+.term{background:var(--bg);border-radius:10px;padding:12px 0;display:inline-block;box-shadow:0 0 0 1px #24262d inset}
+.ln{font:14px/1.5 var(--mono);white-space:pre;height:1.5em;padding:0 14px;display:flex;align-items:center}
+.ln>span{white-space:pre;flex:none}
+.c{flex:none;width:1ch;height:1.02em}
+.g{position:relative;flex:none;width:1ch;height:100%}
+.g::before{content:"";position:absolute}
+.h::before{left:0;right:0;top:calc(50% - .5px);height:1px;background:var(--k)}
+.H::before{left:0;right:0;top:calc(50% - 1.25px);height:2.5px;background:var(--k)}
+.D::before{left:10%;right:30%;top:calc(50% - 1.25px);height:2.5px;background:var(--k)}
+.v::before{top:0;bottom:0;left:calc(50% - .5px);width:1px;background:var(--k)}
+.tl::before{left:calc(50% - .5px);top:calc(50% - .5px);right:0;bottom:0;border-left:1px solid var(--k);border-top:1px solid var(--k);border-top-left-radius:7px}
+.tr::before{left:0;top:calc(50% - .5px);right:calc(50% - .5px);bottom:0;border-right:1px solid var(--k);border-top:1px solid var(--k);border-top-right-radius:7px}
+.bl::before{left:calc(50% - .5px);top:0;right:0;bottom:calc(50% - .5px);border-left:1px solid var(--k);border-bottom:1px solid var(--k);border-bottom-left-radius:7px}
+.br::before{left:0;top:0;right:calc(50% - .5px);bottom:calc(50% - .5px);border-right:1px solid var(--k);border-bottom:1px solid var(--k);border-bottom-right-radius:7px}
+.tag{font:11px/1.3 sans-serif;color:#565b66;margin:10px 0 2px 14px;letter-spacing:.3px}
+.tag:first-child{margin-top:0}
+.cols{display:grid;grid-template-columns:repeat(3,max-content);gap:18px}
+.col h3 small{display:block;font-weight:400;color:#7e848c;font-size:12px;margin-top:2px;max-width:560px}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;margin:10px 0 12px;font-size:13px;color:#a3a9b0}
+.ctrl label{display:flex;gap:6px;align-items:center}
+.ctrl input[type=range]{width:160px;accent-color:#a798d7}
+.ctrl select{background:#23252c;color:#dfe1e5;border:1px solid #33363f;border-radius:5px;padding:2px 6px}
+.ctrl b{color:#e1e3e7;font-weight:600;font-variant-numeric:tabular-nums;min-width:34px;display:inline-block}
+.prin{display:grid;grid-template-columns:repeat(3,330px);gap:14px}
+.prin div{background:#17181d;border:1px solid #24262d;border-radius:10px;padding:12px 14px;font-size:13px;color:#a9aeb5}
+.prin b{display:block;color:#e1e3e7;margin-bottom:4px;font-size:13.5px}
+.prin i{font-style:normal;color:#7e848c;font-size:12px;display:block;margin-top:6px}
+</style>
+
+<style>
+.pair{display:grid;grid-template-columns:max-content;gap:4px}
+ul.cut{margin:6px 0 0 18px;padding:0;max-width:1060px;color:#a9aeb5;font-size:13px}
+ul.cut li{margin:4px 0}
+ul.cut b{color:#e1e3e7}
+ul.cut s{color:#6b7078}
+</style>
+</head>
+<style>
+.w1{display:inline-block;width:1ch;overflow:visible;text-align:center;flex:none}
+table.q{border-collapse:collapse;font-size:13px;margin-top:8px}
+table.q th,table.q td{text-align:left;padding:7px 14px 7px 0;border-bottom:1px solid #24262d;vertical-align:top}
+table.q th{color:#8a9097;font-weight:500}
+table.q td.k{color:#68b78d}table.q td.x{color:#6b7078}
+.legend{font-size:13px;color:#a9aeb5;margin:8px 0 0;max-width:1060px}
+.legend b{color:#e1e3e7}
+</style>
+<body>
+<h1>pi-runway · 状态只用颜色，装饰只加有用的</h1>
+<p class="note">框里不再写“thinking / bash / writing”这些字。运行状态只剩 4 种，全部用边框的颜色和动静来表达。图标和字重只加在能帮你更快认出东西的地方。</p>
+
+<h2>① 量化：只留会改变你下一步动作的状态</h2>
+<table class="q">
+<tr><th>候选状态</th><th>多常见</th><th>看到它，你会做什么</th><th>结论</th></tr>
+<tr><td>等模型 · 思考 · 写回答 · 写工具参数 · 跑某个工具</td><td>每次运行都有，几秒换一次</td><td>什么都不做，继续等</td><td class="x">合并成「运行中」</td></tr>
+<tr><td>压缩 · 自动重试</td><td>偶尔</td><td>继续等</td><td class="x">并入「运行中」（压缩时跑道扫光）</td></tr>
+<tr><td>某一步卡了很久</td><td>少见</td><td>也许按 Esc，但长任务本来就慢，阈值怎么定都会误报</td><td class="x">不做</td></tr>
+<tr><td>跑完了</td><td>每次</td><td>回来输入</td><td class="x">就是「空闲」：动画停了 = 跑完了</td></tr>
+<tr><td>扩展弹框在等你回答</td><td>少见</td><td><b>必须</b>去回答，否则它永远卡着</td><td class="k">保留 · 最醒目</td></tr>
+<tr><td>出错 / 被中止</td><td>少见</td><td>重试，或换模型</td><td class="k">保留 · 留到下次提问</td></tr>
+</table>
+<p class="legend">最后只剩 4 种：<b>空闲</b>（边框是 pi 按 thinking 等级上的颜色，静止）· <b>运行中</b>（同样的颜色，一道光沿上边框流过）· <b>等你回答</b>（整圈变黄，左上角一个实心点）· <b>出错</b>（整圈变红，左上角一个 ✗，留到你下次提问）。<br>
+动 = 它在忙；不动 = 轮到你。黄和红只在少见的时刻出现，所以一出现就能注意到。左上角的符号是给分不清颜色的人，以及 thinking 开到 max（pi 本身就把边框画成红色）时用的。</p>
+<div class="term" id="states"></div>
+
+<h2>② 装饰：三档对比 · 同一时刻</h2>
+<p class="note">在功能分支上、有未提交改动、context 78%。</p>
+<div class="term" id="deco"></div>
+<p class="legend"><b>素</b>：现在的样子。<b>字重 + 符号</b>（推荐）：目录和模型名加粗，成为一眼先看到的两个锚点；分支前加 <code>⎇</code>；模型前一颗 <code>◆</code>，颜色就是 thinking 等级的颜色，所以边框变黄变红时 thinking 等级也不会丢。这些符号任何等宽字体都有，不需要额外装字体。<b>Nerd Font</b>：图标更多，但没装这种字体的人会看到方框乱码，而终端没法告诉我们装没装，只能做成设置项。</p>
+
+<h2>③ 推荐方案 · 窄终端</h2>
+<div class="term" id="widths"></div>
+
+<script src="term.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const BORDER=new Set([..."─╭╮"]);
+const b=(t,c)=>({t,c,b:1});
+const ST={folder:"pi-footer",branch:"feat/runway",dirty:true,model:"Sonnet 4.5",think:"high",pct:78,next:5.5,cost:1.2,state:"idle"};
+
+function where(st,deco,lv){
+  const g=[];
+  if(st.state==="you")g.push(T("● ",C.warning));
+  if(st.state==="err")g.push(T("✗ ",C.error));
+  if(deco==="nerd")g.push(T("\uf07b ",C.dim));
+  g.push(deco==="plain"?T(st.folder,C.text):b(st.folder,C.text));
+  if(st.branch&&lv<2){
+    if(deco==="plain")g.push(T("  "),T(st.branch,C.muted));
+    else g.push(T(deco==="nerd"?"  \ue0a0 ":"  ⎇ ",C.dim),T(st.branch,C.muted));
+  }
+  if(st.dirty)g.push(T("*",C.warning));
+  return g;
+}
+function who(st,deco,lv){
+  if(lv>=4)return[];
+  const tc=THINK[st.think];
+  if(deco==="plain")return[T(st.model,C.text)];
+  return[T(deco==="nerd"?"\udb81\udea9 ":"◆ ",tc),b(st.model,C.text)];
+}
+function borderColor(st){return st.state==="you"?C.warning:st.state==="err"?C.error:THINK[st.think];}
+function topRow(st,W,deco){
+  const bc=borderColor(st);
+  for(let lv=0;lv<5;lv++){const L=where(st,deco,lv),R=who(st,deco,lv);
+    const run=R.length?W-8-width(L)-width(R):W-6-width(L);
+    if(run>=3)return R.length?[T("╭─ ",bc),...L,T(" "+"─".repeat(run)+" ",bc),...R,T(" ─╮",bc)]:[T("╭─ ",bc),...L,T(" "+"─".repeat(run)+"╮",bc)];}
+  return[T("╭"+"─".repeat(W-2)+"╮",bc)];
+}
+function bottomRow(st,W){
+  const bc=borderColor(st), a=alertOf(st.pct), col=a?C[a]:C.muted, R=[];
+  if(a){const t=Math.floor((100-st.pct)/st.next);R.push(T(`${Math.round(st.pct)}%`,col),...(W>=60?[T(`  ≈${t} turn${t===1?"":"s"}`,col)]:[]),T("  "));}
+  if(st.cost>=.005)R.push(T(`$${st.cost.toFixed(2)}`,C.muted));
+  if(R.length&&R.at(-1).t==="  ")R.pop();
+  const n=W-2-(R.length?width(R)+3:1);
+  const segs=[T("╰",bc)], used=Math.max(1,Math.round(st.pct/100*n)), ghost=a?Math.min(n,Math.round((st.pct+st.next)/100*n)):used;
+  for(let i=0;i<n;i++){const c=heat((i+.5)/n);
+    segs.push(i<used?T("━",c):i<ghost?T("╍",mix(c,C.bg,.45)):T("─",bc));}
+  return R.length?[...segs,T(" "),...R,T(" ─╯",bc)]:[...segs,T("╯",bc)];
+}
+// running: a soft light travels along the top border (border characters only, text untouched)
+function comet(row,head,len=22){
+  const out=[];let i=0;
+  for(const g of row){for(const ch of g.t){
+    if(BORDER.has(ch)&&g.c){const d=head-i;const k=d>=0&&d<len?(1-d/len)**1.4*.9:0;out.push({t:ch,c:k?mix(g.c,"#ffffff",k):g.c});}
+    else out.push({...g,t:ch});i++;}}
+  return out;
+}
+const editor=(W,bc)=>sides(W,bc,[T(" ",C.text),{cell:1,c:"#c9ccd3",solid:1}]);
+function box(st,W,deco,frame){
+  let top=topRow(st,W,deco);
+  if(st.state==="run"&&frame!=null)top=comet(top,frame%(W+20));
+  return[top,editor(W,borderColor(st)),bottomRow(st,W)].map(r=>html(r,W)).join("");
+}
+const STATES=[["空闲",{state:"idle"}],["运行中（动画）",{state:"run"}],["等你回答",{state:"you"}],["出错 · 留到下次提问",{state:"err"}]];
+const W=100;
+function draw(f){
+  $("states").innerHTML=STATES.map(([n,o])=>`<div class="tag">${n}</div>`+box({...ST,...o},W,"sym",f)).join("");
+}
+let f=0;draw(0);setInterval(()=>draw(f+=2),60);
+$("deco").innerHTML=[["素","plain"],["字重 + 符号（推荐）","sym"],["Nerd Font","nerd"]].map(([n,d])=>`<div class="tag">${n}</div>`+box(ST,W,d)).join("");
+$("widths").innerHTML=[140,80,60,44].map(w=>`<div class="tag">${w} 列</div>`+box(ST,w,"sym")).join("");
+</script>
+</body>
+</html>
