@@ -109,11 +109,15 @@ function label(st,short){
   const turns=st.next?Math.floor((100-st.pct)/st.next):null;
   if(a&&turns!=null)out.push(T(short?` ≈${turns}`:` · ≈${turns} turn${turns===1?"":"s"} left`,col));
   return out;}
-function money(st,lv){const o=[];if(st.phase==="running"&&lv<4)o.push(T(st.elapsed,C.dim),T("  ·  ",C.track));
+function money(st,lv){const o=[];
   o.push(T(`$${st.cost.toFixed(2)}`,C.muted));if(st.phase==="running"&&lv<2)o.push(T(` +${st.delta.toFixed(2)}`,C.dim));return o;}
 function sides(W,bc,inner){const pad=W-2-width(inner);return[T("│",bc),...inner,T(" ".repeat(Math.max(0,pad))),T("│",bc)];}
+function status(st,lv){ // pi's own working/compaction indicator, which pi already draws in the editor's top border
+  if(st.phase==="running")return[T("⠹ ",C.accent),T("Working…",C.muted),...(lv<6?[T("  ·  ",C.track),T(st.elapsed,C.dim)]:[])];
+  if(st.phase==="compacting")return[T("⠹ ",C.accent),T("Compacting context…",C.muted)];
+  return null;}
 function topBox(st,W){const bc=THINK[st.think];
-  for(let lv=0;lv<10;lv++){const L=where(st,lv),R=who(st,lv);
+  for(let lv=0;lv<10;lv++){const L=status(st,lv)||where(st,lv),R=who(st,lv);
     const run=R.length?W-8-width(L)-width(R):W-6-width(L);
     if(run>=3)return[T("╭─ ",bc),...L,T(" "+"─".repeat(run),bc),...(R.length?[T(" ",bc),...R,T(" ─╮",bc)]:[T("─╮",bc)])];}
   return[T("╭"+"─".repeat(W-2)+"╮",bc)];}
@@ -183,9 +187,7 @@ document.getElementById("cols").innerHTML=[
 const $=id=>document.getElementById(id);let frame=0;
 function hero(){const pct=+$("pct").value,W=+$("w").value,phase=$("phase").value;$("pctv").textContent=pct+"%";$("wv").textContent=W;
   const st={...BASE,pct:phase==="compacted"?null:pct,phase,next:4.5,elapsed:"1m23s",cost:.46+pct/100,delta:.04,think:$("think").value,statuses:["mcp 3"]};
-  const rows=[[T(" Moved the context gauge into the editor frame.",C.text)],[T("")],
-    phase==="running"?[T(" ⠹ ",C.accent),T("Working…",C.muted)]:phase==="compacting"?[T(" ⠹ ",C.accent),T("Compacting context…",C.muted)]:[T("")],
-    ...boxRows(st,W,"B",frame)];
+  const rows=[[T(" Moved the context gauge into the editor frame.",C.text)],[T("")],...boxRows(st,W,"B",frame)];
   $("hero").innerHTML=rows.map(r=>html(r,W)).join("");}
 document.querySelectorAll("#ctrl input,#ctrl select").forEach(e=>e.addEventListener("input",hero));
 setInterval(()=>{if($("phase").value==="compacting"){frame++;hero();}},60);hero();
