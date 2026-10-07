@@ -5,11 +5,27 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ContextUsage, ExtensionAPI, ExtensionContext, ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { layout, type View } from "./src/render.ts";
+import { layout, shortModel, type Tone, type View } from "./src/render.ts";
 import { displayPath, latestResponse, type MessageLike, runEnds, sanitize, totalCost, turnsLeft } from "./src/state.ts";
 
 const VIRTUAL_API = "pi-virtual";
 const GIT_TIMEOUT_MS = 3000;
+
+/** Render tones → theme tokens. `faint` is the quietest color every built-in theme defines. */
+const TOKENS = {
+	text: "text",
+	muted: "muted",
+	dim: "dim",
+	faint: "scrollbarTrack",
+	warning: "warning",
+	error: "error",
+} as const satisfies Record<Tone, string>;
+
+/** Human name, vendor prefix dropped: "Claude Sonnet 4.5" → "Sonnet 4.5". */
+function displayName(model: { id: string; name?: string } | undefined): string | undefined {
+	if (!model) return undefined;
+	return model.name ? shortModel(model.name) : model.id;
+}
 
 export default function runway(pi: ExtensionAPI) {
 	let ctx: ExtensionContext | undefined;
@@ -122,9 +138,11 @@ export default function runway(pi: ExtensionAPI) {
 			branch: footer?.getGitBranch() ?? undefined,
 			dirty,
 			statuses,
-			model: model?.id,
+			model: displayName(model),
 			thinking: thinking && thinking !== "off" ? thinking : undefined,
-			routed: routed?.model,
+			routed: routed?.model
+				? displayName(c?.modelRegistry.find(routed.provider ?? "", routed.model) ?? { id: routed.model })
+				: undefined,
 			ctxPercent: usage?.percent ?? null,
 			turnsLeft: turnsLeft(ends, usage?.tokens ?? null, usage?.contextWindow ?? 0),
 			cost,
@@ -154,8 +172,9 @@ export default function runway(pi: ExtensionAPI) {
 					requestRender = () => {};
 				},
 				render(width: number): string[] {
-					const line = layout(view(), width, visibleWidth)
-						.map((s) => (s.tone ? theme.fg(s.tone, s.text) : s.text))
+					const faintDistinct = theme.fg(TOKENS.faint, "x") !== theme.fg(TOKENS.muted, "x");
+					const line = layout(view(), width, visibleWidth, { faintDistinct })
+						.map((s) => (s.tone ? theme.fg(TOKENS[s.tone], s.text) : s.text))
 						.join("");
 					return [truncateToWidth(line, width)];
 				},
