@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>pi-runway · 视觉身份</title>
+<style>
+:root{--bg:#18191e;--page:#0f1014;--ink:#c9ccd3;--sub:#7e888e;--hl:#a798d7;--mono:'JetBrains Mono','Iosevka','DejaVu Sans Mono',ui-monospace,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.65 -apple-system,'Inter','Noto Sans CJK SC',sans-serif;padding:28px 32px 60px;width:max-content;min-width:1280px}
+h1{font-size:22px;margin:0 0 6px;color:#e6e7ea;font-weight:650}
+h2{font-size:15px;color:var(--hl);margin:34px 0 6px;font-weight:600}
+h3{font-size:13px;color:#e1e3e7;margin:0 0 6px;font-weight:600}
+p.note{margin:4px 0 10px;color:#8a9097;font-size:13px;max-width:1040px}
+.term{background:var(--bg);border-radius:10px;padding:12px 0;display:inline-block;box-shadow:0 0 0 1px #24262d inset}
+.ln{font:14px/1.5 var(--mono);white-space:pre;height:1.5em;padding:0 14px;display:flex;align-items:center}
+.ln>span{white-space:pre;flex:none}
+.c{flex:none;width:1ch;height:1.02em}
+.g{position:relative;flex:none;width:1ch;height:100%}
+.g::before{content:"";position:absolute}
+.h::before{left:0;right:0;top:calc(50% - .5px);height:1px;background:var(--k)}
+.H::before{left:0;right:0;top:calc(50% - 1.25px);height:2.5px;background:var(--k)}
+.D::before{left:10%;right:30%;top:calc(50% - 1.25px);height:2.5px;background:var(--k)}
+.v::before{top:0;bottom:0;left:calc(50% - .5px);width:1px;background:var(--k)}
+.tl::before{left:calc(50% - .5px);top:calc(50% - .5px);right:0;bottom:0;border-left:1px solid var(--k);border-top:1px solid var(--k);border-top-left-radius:7px}
+.tr::before{left:0;top:calc(50% - .5px);right:calc(50% - .5px);bottom:0;border-right:1px solid var(--k);border-top:1px solid var(--k);border-top-right-radius:7px}
+.bl::before{left:calc(50% - .5px);top:0;right:0;bottom:calc(50% - .5px);border-left:1px solid var(--k);border-bottom:1px solid var(--k);border-bottom-left-radius:7px}
+.br::before{left:0;top:0;right:calc(50% - .5px);bottom:calc(50% - .5px);border-right:1px solid var(--k);border-bottom:1px solid var(--k);border-bottom-right-radius:7px}
+.tag{font:11px/1.3 sans-serif;color:#565b66;margin:10px 0 2px 14px;letter-spacing:.3px}
+.tag:first-child{margin-top:0}
+.cols{display:grid;grid-template-columns:repeat(3,max-content);gap:18px}
+.col h3 small{display:block;font-weight:400;color:#7e848c;font-size:12px;margin-top:2px;max-width:560px}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;margin:10px 0 12px;font-size:13px;color:#a3a9b0}
+.ctrl label{display:flex;gap:6px;align-items:center}
+.ctrl input[type=range]{width:160px;accent-color:#a798d7}
+.ctrl select{background:#23252c;color:#dfe1e5;border:1px solid #33363f;border-radius:5px;padding:2px 6px}
+.ctrl b{color:#e1e3e7;font-weight:600;font-variant-numeric:tabular-nums;min-width:34px;display:inline-block}
+.prin{display:grid;grid-template-columns:repeat(3,330px);gap:14px}
+.prin div{background:#17181d;border:1px solid #24262d;border-radius:10px;padding:12px 14px;font-size:13px;color:#a9aeb5}
+.prin b{display:block;color:#e1e3e7;margin-bottom:4px;font-size:13.5px}
+.prin i{font-style:normal;color:#7e848c;font-size:12px;display:block;margin-top:6px}
+</style>
+</head>
+<body>
+<h1>pi-runway · 视觉身份</h1>
+<p class="note">同样是四面包围的输入框，怎么做得好看，又一眼就能看出不是 topping。左：topping（示意，浏览器里没有 Nerd Font 图标）。中：A，四面框 + 色块表。右：B，<b>下边框本身就是跑道</b>：用掉的部分是粗线，下一轮预计用量是虚线，剩下的是细线。</p>
+
+<h2>① 三种方向 · 同样四个时刻 · 100 列</h2>
+<div class="cols" id="cols"></div>
+
+<h2>② 方向 B · 模拟器</h2>
+<div class="ctrl" id="ctrl">
+  <label>context <input type="range" id="pct" min="0" max="100" value="41"><b id="pctv"></b></label>
+  <label>宽度 <input type="range" id="w" min="36" max="170" value="120"><b id="wv"></b></label>
+  <label>状态 <select id="phase"><option value="idle">空闲</option><option value="running" selected>运行中</option><option value="compacting">压缩中</option><option value="compacted">刚压缩完</option></select></label>
+  <label>thinking <select id="think"><option>off</option><option>minimal</option><option>low</option><option selected>medium</option><option>high</option><option>xhigh</option><option>max</option></select></label>
+</div>
+<div class="term" id="hero"></div>
+
+<h2>③ 方向 B · 窄终端</h2>
+<p class="note">色块表要靠减少格数来适应宽度；跑道线天然随宽度伸缩，任何宽度下都是完整的一条。</p>
+<div class="term" id="widths"></div>
+
+<h2>④ 设计原则</h2>
+<div class="prin">
+  <div><b>1 · 颜色只用来报信</b>文字一律是灰阶，分三层亮度。全屏只有一处颜色会变：跑道。颜色少，变化才会被注意到。<i>孤立效应：一堆彩色里多一块彩色，没人看得见</i></div>
+  <div><b>2 · 面积代替数字</b>用掉的越多，彩色线越长、越热。余光就能读，不用盯着数字看。<i>前注意加工：长度和颜色不用专门看也能感知</i></div>
+  <div><b>3 · 正常时不亮灯</b>空闲时整个框几乎全是细线，像熄灯的驾驶舱。只有出状况，线才会变粗、变热。<i>空客“暗驾驶舱”：没有灯 = 一切正常</i></div>
+  <div><b>4 · 只在变化时动</b>余光对运动最敏感。所以不做常驻动画，只有计时在跳、压缩在扫光时才动。<i>运动会强行抢走注意力，不能浪费</i></div>
+  <div><b>5 · 文字，不用图标</b>不用 Nerd Font、不用 powerline 箭头，只用间距和亮度分组。任何终端、任何字体都一样好看。<i>这是和 topping 最直观的区别</i></div>
+  <div><b>6 · 框把相关的东西圈在一起</b>四面框让“我在哪、谁在干活、还剩多少”和输入内容成为一个整体。这也是你觉得四面框更好看的原因。<i>格式塔·共同区域</i></div>
+</div>
+
+<script>
+const C={text:"#dee0e1",muted:"#9da5a9",dim:"#7e888e",accent:"#a798d7",success:"#68b78d",warning:"#cd9a22",error:"#ea7f81",
+  mdLink:"#69add0",syntaxString:"#de8d5a",track:"#484e52",bg:"#18191e"};
+const THINK={off:"#6c767b",minimal:"#68808d",low:"#5489a4",medium:"#6185cc",high:"#9776e5",xhigh:"#de54c1",max:"#fe5462"};
+const hex2rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
+const lin=c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4, gam=c=>c<=.0031308?12.92*c:1.055*c**(1/2.4)-.055;
+function toLab([r,g,b]){r=lin(r);g=lin(g);b=lin(b);
+  const l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*b),m=Math.cbrt(.2119034982*r+.6806995451*g+.1073969566*b),s=Math.cbrt(.0883024619*r+.2817188376*g+.6299787005*b);
+  return[.2104542553*l+.793617785*m-.0040720468*s,1.9779984951*l-2.428592205*m+.4505937099*s,.0259040371*l+.7827717662*m-.808675766*s];}
+function fromLab([L,a,b]){const l=(L+.3963377774*a+.2158037573*b)**3,m=(L-.1055613458*a-.0638541728*b)**3,s=(L-.0894841775*a-1.291485548*b)**3;
+  return[4.0767416621*l-3.3077115913*m+.2309699292*s,-1.2684380046*l+2.6097574011*m-.3413193965*s,-.0041960863*l-.7034186147*m+1.707614701*s].map(c=>Math.round(Math.min(1,Math.max(0,gam(c)))*255));}
+const mix=(h1,h2,t)=>{const A=toLab(hex2rgb(h1)),B=toLab(hex2rgb(h2));const[r,g,b]=fromLab(A.map((v,i)=>v+(B[i]-v)*t));return"#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("");};
+const STOPS=[[0,C.mdLink],[.45,C.success],[.72,C.warning],[.9,C.error],[1,C.error]];
+function heat(x){for(let i=1;i<STOPS.length;i++){const[a,ca]=STOPS[i-1],[b,cb]=STOPS[i];if(x<=b)return mix(ca,cb,(x-a)/(b-a||1));}return C.error;}
+
+const T=(t,c)=>({t,c});
+const width=s=>s.reduce((n,g)=>n+(g.cell?1:[...g.t].length),0);
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+const BOX={"─":"h","━":"H","╍":"D","│":"v","╭":"tl","╮":"tr","╰":"bl","╯":"br"};
+function html(segs,W){let s="";for(const g of segs){
+  if(g.cell){s+=`<i class="c" style="background:${g.solid?g.c:`linear-gradient(90deg,${g.c} 0 62.5%,transparent 62.5%)`}"></i>`;continue;}
+  let buf="";const flush=()=>{if(buf)s+=`<span${g.c?` style="color:${g.c}"`:""}>${esc(buf)}</span>`;buf="";};
+  for(const ch of g.t){if(BOX[ch]){flush();s+=`<i class="g ${BOX[ch]}" style="--k:${g.c||C.text}"></i>`;}else buf+=ch;}
+  flush();}
+  return`<div class="ln" style="width:calc(${W}ch + 28px)">${s}</div>`;}
+const alertOf=p=>p==null?null:p>=90?"error":p>=70?"warning":null;
+
+// ── shared pieces ──
+function where(st,lv){const L=[T(lv>=2?st.base:st.path,C.text)];
+  if(lv<5){L.push(T("  "),T(st.branch,C.muted));if(st.dirty)L.push(T("*",C.warning));}
+  if(lv<3&&st.statuses.length)L.push(T("  ·  ",C.track),T(st.statuses.join(" · "),C.dim));return L;}
+function who(st,lv){return lv<7?[T(st.model,C.text),...(lv<4?[T(" "),T(st.think,C.dim)]:[])]:[];}
+function label(st,short){
+  if(st.phase==="compacting")return[T("compacting…",C.dim)];
+  if(st.phase==="compacted")return[T("compacted",C.dim)];
+  const a=alertOf(st.pct),col=a?C[a]:C.muted,out=[T(`${Math.round(st.pct)}%`,col)];
+  const turns=st.next?Math.floor((100-st.pct)/st.next):null;
+  if(a&&turns!=null)out.push(T(short?` ≈${turns}`:` · ≈${turns} turn${turns===1?"":"s"} left`,col));
+  return out;}
+function money(st,lv){const o=[];if(st.phase==="running"&&lv<4)o.push(T(st.elapsed,C.dim),T("  ·  ",C.track));
+  o.push(T(`$${st.cost.toFixed(2)}`,C.muted));if(st.phase==="running"&&lv<2)o.push(T(` +${st.delta.toFixed(2)}`,C.dim));return o;}
+function sides(W,bc,inner){const pad=W-2-width(inner);return[T("│",bc),...inner,T(" ".repeat(Math.max(0,pad))),T("│",bc)];}
+function topBox(st,W){const bc=THINK[st.think];
+  for(let lv=0;lv<10;lv++){const L=where(st,lv),R=who(st,lv);
+    const run=R.length?W-8-width(L)-width(R):W-6-width(L);
+    if(run>=3)return[T("╭─ ",bc),...L,T(" "+"─".repeat(run),bc),...(R.length?[T(" ",bc),...R,T(" ─╮",bc)]:[T("─╮",bc)])];}
+  return[T("╭"+"─".repeat(W-2)+"╮",bc)];}
+const editorRow=(W,bc,text)=>sides(W,bc,[T(" "+text,C.text),{cell:1,c:"#c9ccd3",solid:1}]);
+
+// ── B: the bottom edge is the runway ──
+function bottomRunway(st,W,frame=0){
+  const bc=THINK[st.think];
+  for(let lv=0;lv<6;lv++){
+    const R=[...(lv<5?[...money(st,lv),T("  ·  ",C.track)]:[]),...label(st,lv>=3)];
+    const n=W-2-(width(R)+3);           // ╰ + runway + " " + R + " ─╯"
+    if(n<4&&lv<5)continue;
+    const segs=[T("╰",bc)];
+    const used=st.pct==null?0:st.pct/100*n, ghost=st.next&&st.phase==="idle"||st.phase==="running"?Math.min(n,(st.pct+(st.next||0))/100*n):used;
+    for(let i=0;i<n;i++){
+      const x=(i+.5)/n, c=heat(x);
+      if(st.phase==="compacted"){segs.push(T("─",bc));continue;}
+      if(i<Math.max(st.pct>0?1:0,Math.round(used))){
+        if(st.phase==="compacting"){const d=Math.abs(i-((frame*2)%(n+12)-6));segs.push(T("━",mix(mix(c,C.bg,.5),"#ffffff",d<2?.4:d<4?.18:0)));}
+        else segs.push(T("━",c));
+      }else if(i<Math.round(ghost)&&st.next)segs.push(T("╍",mix(c,C.bg,.45)));
+      else segs.push(T("─",bc));
+    }
+    return[...segs,T(" "),...R,T(" ─╯",bc)];
+  }
+}
+// ── A: box + cell gauge ──
+function bottomCells(st,W){
+  const bc=THINK[st.think];const n=W>=110?20:W>=80?14:W>=56?10:6;
+  const cells=[];const used=st.pct==null?0:Math.max(1,Math.round(st.pct/100*n));
+  const ghost=st.next?Math.max(used+1,Math.round((st.pct+st.next)/100*n)):used;
+  for(let i=0;i<n;i++){const c=heat((i+.5)/n);cells.push({cell:1,c:st.phase==="compacted"?mix(C.track,C.bg,.25):i<used?c:i<ghost?mix(c,C.bg,.62):mix(C.track,C.bg,.25)});}
+  const R=[...money(st,0),T("  "),...cells,T(" "),...label(st,false)];
+  const run=W-2-width(R)-3;
+  return[T("╰"+"─".repeat(run)+" ",bc),...R,T(" ─╯",bc)];
+}
+// ── topping (approximation; no Nerd Font) ──
+function toppingRows(st,W){
+  const bc="#6f7ec9";
+  const L=[T(" π ","#e5c07b"),T("❯ ","#5c6370"),T("⬡ Sonnet 4.5","#d58ac0"),T(" · ","#5c6370"),T("◉ "+st.think,"#d58ac0"),T(" ❯ ","#5c6370"),
+    T("▸ ~/pi-things/pi-footer","#3fb6b2"),T(" ❯ ","#5c6370"),T("⎇ main"+(st.dirty?" *3":""),"#d6b24a"),T(" ")];
+  const top=[T("╭──",bc),...L,T("─".repeat(Math.max(2,W-4-width(L)))+"╮",bc)];
+  const band=x=>x>=.9?"#ea5b5f":x>=.7?"#e38a2c":x>=.5?"#e3c31f":"#8b8fb0";
+  const cells=[];const used=Math.round(st.pct/100*20);
+  for(let i=0;i<20;i++)cells.push(i<used?{cell:1,c:band((i+1)/20)}:T("░","#4a4d58"));
+  const R=[T("↑12.4K ↓3.1K R148K W12K $"+st.cost.toFixed(2)+" ","#8d93a6"),...cells,T(" "+st.pct.toFixed(1)+"%/1.0M","#7e8396")];
+  const bot=[T("╰──",bc),T(" ↑ scroll ","#5c6370"),T("─".repeat(Math.max(2,W-6-width(R)-10)),bc),T(" "),...R,T(" ─╯",bc)];
+  return[top,sides(W,bc,[T(" make it pop",C.text),{cell:1,c:"#c9ccd3",solid:1}]),bot];
+}
+
+const BASE={path:"pi-things/pi-footer",base:"pi-footer",branch:"main",dirty:true,statuses:[],model:"Sonnet 4.5",think:"medium",pct:12,next:4,cost:.08,delta:0,phase:"idle",elapsed:""};
+const MOMENTS=[["12% · 空闲",{pct:12,cost:.08,dirty:false}],["41% · 运行中",{pct:41,phase:"running",elapsed:"1m23s",cost:.46,delta:.04,think:"high"}],
+  ["78% · 偏紧",{pct:78,next:5.5,cost:1.2,think:"low"}],["93% · 危险",{pct:93,next:5,cost:1.38,think:"medium"}]];
+
+function boxRows(st,W,kind,frame){const bc=THINK[st.think];
+  if(kind==="topping")return toppingRows(st,W);
+  return[topBox(st,W),editorRow(W,bc,"make it pop"),kind==="A"?bottomCells(st,W):bottomRunway(st,W,frame)];}
+
+const W0=100;
+document.getElementById("cols").innerHTML=[
+  ["topping-statusline",'彩色分段、powerline 箭头、Nerd Font 图标、20 格色块 + token 明细',"topping"],
+  ["A · 四面框 + 色块表","把 topping 的色块搬进安静的框里。好看，但和 topping 太像","A"],
+  ["B · 下边框就是跑道（推荐）","没有额外的图形：框本身在报信。用得越多，粗线越长越热","B"],
+].map(([h,s,k])=>`<div class="col"><h3>${h}<small>${s}</small></h3><div class="term">${
+  MOMENTS.map(([n,o])=>`<div class="tag">${n}</div>`+boxRows({...BASE,...o},W0,k,0).map(r=>html(r,W0)).join("")).join("")}</div></div>`).join("");
+
+const $=id=>document.getElementById(id);let frame=0;
+function hero(){const pct=+$("pct").value,W=+$("w").value,phase=$("phase").value;$("pctv").textContent=pct+"%";$("wv").textContent=W;
+  const st={...BASE,pct:phase==="compacted"?null:pct,phase,next:4.5,elapsed:"1m23s",cost:.46+pct/100,delta:.04,think:$("think").value,statuses:["mcp 3"]};
+  const rows=[[T(" Moved the context gauge into the editor frame.",C.text)],[T("")],
+    phase==="running"?[T(" ⠹ ",C.accent),T("Working…",C.muted)]:phase==="compacting"?[T(" ⠹ ",C.accent),T("Compacting context…",C.muted)]:[T("")],
+    ...boxRows(st,W,"B",frame)];
+  $("hero").innerHTML=rows.map(r=>html(r,W)).join("");}
+document.querySelectorAll("#ctrl input,#ctrl select").forEach(e=>e.addEventListener("input",hero));
+setInterval(()=>{if($("phase").value==="compacting"){frame++;hero();}},60);hero();
+
+{const st={...BASE,...MOMENTS[2][1],phase:"running",elapsed:"1m23s",delta:.04,statuses:["mcp 3"]};
+ $("widths").innerHTML=[150,120,90,64,46].map(w=>`<div class="tag">${w} 列</div>`+boxRows(st,w,"B",0).map(r=>html(r,w)).join("")).join("");}
+</script>
+</body>
+</html>
