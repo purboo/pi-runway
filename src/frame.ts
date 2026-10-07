@@ -10,7 +10,7 @@ export interface View {
 	/** "repo/sub/dir" — shortened to `repo` when narrow. */
 	path: string;
 	repo: string;
-	/** Only set off the default branch. */
+	/** Current git branch; absent outside a repo. */
 	branch?: string;
 	dirty: boolean;
 	/** Other extensions' status texts. */

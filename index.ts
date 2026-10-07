@@ -73,9 +73,8 @@ export default function runway(pi: ExtensionAPI) {
 	let anim: ReturnType<typeof setInterval> | undefined;
 	let flashTimer: ReturnType<typeof setTimeout> | undefined;
 
-	// Git: root and default branch once per session/branch change, dirty after anything that may touch files.
+	// Git: root once per session/branch change, dirty after anything that may touch files.
 	let gitRoot: string | undefined;
-	let defaultBranch: string | undefined;
 	let gitRootKnown = false;
 	let dirty = false;
 	let gitBusy = false;
@@ -121,8 +120,6 @@ export default function runway(pi: ExtensionAPI) {
 			if (!gitRootKnown) {
 				const r = await git("rev-parse", "--show-toplevel");
 				gitRoot = r.code === 0 ? r.stdout.trim() || undefined : undefined;
-				const h = await git("symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD");
-				defaultBranch = h.code === 0 ? h.stdout.trim().replace(/^[^/]+\//, "") || undefined : undefined;
 				gitRootKnown = true;
 			}
 			const s = await git("status", "--porcelain", "--ignore-submodules");
@@ -174,10 +171,6 @@ export default function runway(pi: ExtensionAPI) {
 		return ctx.modelRegistry.isUsingOAuth({ provider } as Model<Api>);
 	}
 
-	function isDefaultBranch(branch: string): boolean {
-		return defaultBranch ? branch === defaultBranch : branch === "main" || branch === "master";
-	}
-
 	function view(): View {
 		const c = ctx;
 		const model = c?.model;
@@ -199,7 +192,7 @@ export default function runway(pi: ExtensionAPI) {
 		const interrupt = busy ? keyText("app.interrupt").replace(/\bescape\b/gi, "esc") : "";
 		return {
 			...displayPath(c?.cwd ?? process.cwd(), gitRoot, process.env.HOME),
-			branch: branch && !isDefaultBranch(branch) ? branch : undefined,
+			branch: branch || undefined,
 			dirty,
 			statuses,
 			model: displayName(routedModel ?? model),
@@ -344,7 +337,7 @@ export default function runway(pi: ExtensionAPI) {
 		prompts = 0;
 		compacting = false;
 		gitRootKnown = false;
-		gitRoot = defaultBranch = undefined;
+		gitRoot = undefined;
 		dirty = false;
 		refresh();
 		install(c);
