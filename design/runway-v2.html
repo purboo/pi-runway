@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>pi-runway 0.2 · design</title>
+<style>
+:root{
+  --bg:#18191e; --page:#0f1014; --card:#1d1e24; --ink:#c9ccd3; --sub:#7e888e; --hl:#a798d7;
+  --mono:'JetBrains Mono','Iosevka','DejaVu Sans Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.6 -apple-system,'Inter','Noto Sans CJK SC',sans-serif;padding:28px 32px 60px;width:max-content;min-width:1280px}
+h1{font-size:22px;margin:0 0 4px;color:#e6e7ea;font-weight:650;letter-spacing:.2px}
+h1 small{font-size:13px;color:var(--sub);font-weight:400;margin-left:10px}
+h2{font-size:15px;color:var(--hl);margin:34px 0 6px;font-weight:600}
+p.lead{margin:2px 0 0;color:#a3a9b0;max-width:980px}
+p.note{margin:4px 0 10px;color:#8a9097;font-size:13px;max-width:1000px}
+.term{background:var(--bg);border-radius:10px;padding:14px 0 14px;display:inline-block;box-shadow:0 0 0 1px #24262d inset}
+.ln{font:14px/1.55 var(--mono);white-space:pre;height:1.55em;padding:0 14px}
+.ln span{white-space:pre}
+.c{display:inline-block;width:1ch;height:1.02em;vertical-align:-.2em}
+.tag{font:11px/1.3 sans-serif;color:#565b66;margin:10px 0 2px 14px;letter-spacing:.3px}
+.tag:first-child{margin-top:0}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;margin:10px 0 12px;font-size:13px;color:#a3a9b0}
+.ctrl label{display:flex;gap:6px;align-items:center}
+.ctrl input[type=range]{width:150px;accent-color:#a798d7}
+.ctrl select{background:#23252c;color:#dfe1e5;border:1px solid #33363f;border-radius:5px;padding:2px 6px}
+.ctrl b{color:#e1e3e7;font-weight:600;font-variant-numeric:tabular-nums;min-width:34px;display:inline-block}
+.grid{display:grid;grid-template-columns:repeat(2,max-content);gap:14px 18px}
+.pal{display:grid;grid-template-columns:110px repeat(4,max-content);gap:6px 18px;align-items:center}
+.pal .nm{color:#a3a9b0;font-size:13px}
+.pal .nm i{display:block;font-style:normal;color:#666c75;font-size:11px}
+table{border-collapse:collapse;font-size:13px;margin-top:6px}
+th,td{border-bottom:1px solid #262830;padding:7px 14px 7px 0;text-align:left;vertical-align:top}
+th{color:#8a9097;font-weight:500}
+td.bad{color:#ea7f81} td.good{color:#68b78d}
+.anat{display:flex;gap:40px;align-items:flex-end}
+.anat .big .ln{font-size:30px;height:1.4em;line-height:1.4}
+.legend{display:flex;gap:26px;font-size:12px;color:#8a9097;margin:8px 0 0 14px}
+.legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:6px;background:var(--k)}
+ol.dec{margin:6px 0 0 18px;padding:0;max-width:1000px}
+ol.dec li{margin:6px 0}
+ol.dec b{color:#e1e3e7}
+code{font:12.5px var(--mono);color:#cfc6f0;background:#22232b;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+
+<h1>pi-runway 0.2 <small>context 表挪到你打字的地方 · 每次按键零计算</small></h1>
+<p class="lead">借 topping 的点子：context 用量画成一格一格的色块，放在输入框下边框的右端。但做法不同：颜色是连续渐变，不按档位跳；多出一段“虚影”，标出下一轮预计会用掉多少；按键时不做任何计算。</p>
+
+<!-- ───────────────────────── 1 · simulator ───────────────────────── -->
+<h2>① 模拟器</h2>
+<div class="ctrl" id="ctrl">
+  <label>context <input type="range" id="pct" min="0" max="100" value="41"><b id="pctv"></b></label>
+  <label>宽度 <input type="range" id="w" min="36" max="170" value="120"><b id="wv"></b></label>
+  <label>状态 <select id="phase"><option value="idle">空闲</option><option value="running" selected>运行中</option><option value="compacting">压缩中</option><option value="compacted">刚压缩完</option></select></label>
+  <label>thinking <select id="think"><option>off</option><option>minimal</option><option>low</option><option selected>medium</option><option>high</option><option>xhigh</option><option>max</option></select></label>
+  <label>配色 <select id="pal"><option value="aurora" selected>aurora</option><option value="green">green</option><option value="mono">mono</option><option value="tinted">tinted</option></select></label>
+  <label>位置 <select id="dock"><option value="docked" selected>输入框边框（推荐）</option><option value="footer">只在 footer</option></select></label>
+  <label><input type="checkbox" id="ghost" checked> 下一轮虚影</label>
+  <label><input type="checkbox" id="win"> 显示窗口大小</label>
+</div>
+<div class="term" id="hero"></div>
+
+<!-- ───────────────────────── 2 · anatomy ───────────────────────── -->
+<h2>② 表的构成</h2>
+<p class="note">每格的颜色由它在表上的位置决定：越往右越热。所以光看最右边那格的颜色，就知道离满还有多远，不用读数字。没填的格子用同样的形状、很暗的颜色，不用 topping 那种 ░ 网点，看着更干净。</p>
+<div class="anat">
+  <div><div class="tag">pi-runway · 78%，下一轮预计 +6%</div><div class="term big" id="anatA"></div>
+    <div class="legend"><span style="--k:#cd9a22">已用（颜色随位置变化）</span><span style="--k:#6b5a2a">下一轮预计</span><span style="--k:#30343a">剩余</span></div></div>
+  <div><div class="tag">topping-statusline · 87.9%（示意）</div><div class="term big" id="anatB"></div>
+    <div class="legend"><span style="--k:#8b8fb0">分 4 档跳色</span><span style="--k:#3a3d46">░ 网点</span></div></div>
+</div>
+
+<!-- ───────────────────────── 3 · states ───────────────────────── -->
+<h2>③ 七种状态 · 120 列</h2>
+<p class="note">平时只有一条安静的表。70% 起数字变黄并给出剩余轮数，90% 变红。压缩时整条表有一道光扫过。</p>
+<div class="grid" id="states"></div>
+
+<!-- ───────────────────────── 4 · palettes ───────────────────────── -->
+<h2>④ 配色：选一套</h2>
+<p class="note">四套都只用主题里本来就有的颜色，然后在 OKLab 空间里插值，保证渐变均匀不发脏。终端不支持真彩色时自动退回到最近的分档颜色。</p>
+<div class="pal" id="pals"></div>
+
+<!-- ───────────────────────── 5 · widths ───────────────────────── -->
+<h2>⑤ 窄终端 · 运行中</h2>
+<p class="note">格数随宽度递减：20 → 14 → 10 → 6 → 只剩数字。footer 行按原有顺序让位，最后只留费用。</p>
+<div class="term" id="widths"></div>
+
+<!-- ───────────────────────── 6 · perf ───────────────────────── -->
+<h2>⑥ 为什么快</h2>
+<p class="note">打字卡的根源是渲染时做计算。pi 每按一次键都会重绘输入框和 footer。所以规则只有一条：<b>render() 里不算任何东西，只拼接已经算好的字符串。</b></p>
+<table>
+<tr><th style="width:150px"></th><th style="width:420px">topping-statusline</th><th style="width:460px">pi-runway 0.2</th></tr>
+<tr><td>每次按键</td><td class="bad">调用 getContextUsage() → 重算整个 session（buildSessionProjection），session 越长越慢</td><td class="good">返回缓存的字符串；只有宽度或数据变了才重新拼，O(1)</td></tr>
+<tr><td>context 用量</td><td>每次渲染都重算</td><td>运行中直接读 message_end 带的 usage；只在 agent_end、压缩、换模型、载入 session 时调一次 getContextUsage()</td></tr>
+<tr><td>费用</td><td>—</td><td>每条消息到来时累加；只在载入 session 或切换分支时整体扫一遍</td></tr>
+<tr><td>git</td><td class="bad">定时起进程跑 git status（约 0.18 s / 20 s）</td><td class="good">分支名用 pi 自带的监听；脏标记只在 write / edit / bash 工具结束后查一次，带防抖</td></tr>
+<tr><td>定时器</td><td>max thinking 时彩虹边框持续动画（约 14 秒一圈），另有状态滑入动画</td><td>只在运行中每秒跳一次（计时变了才重绘）；只在压缩期间跑扫光动画</td></tr>
+<tr><td>输入框</td><td>整个编辑器重新包一层盒子，宽度缩 6 列</td><td>只替换编辑器的 renderBottomBorder()：不缩宽度、不加侧边、不碰按键处理；找不到这个方法就自动把表放回 footer</td></tr>
+<tr><td>验收标准</td><td></td><td>测试里造一个 10,000 条记录的 session，连续渲染 1,000 次总耗时 &lt; 5 ms</td></tr>
+</table>
+
+<!-- ───────────────────────── 7 · decisions ───────────────────────── -->
+<h2>⑦ 需要你拍板</h2>
+<ol class="dec">
+  <li><b>位置：</b>表放在输入框下边框（推荐，离视线最近）还是只放 footer（完全不碰编辑器）？</li>
+  <li><b>配色：</b>aurora / green / mono / tinted 选一套。我倾向 <b>aurora</b>：空闲时也好看，越热越红的意思也清楚。tinted 跟着 thinking 等级变色，但 xhigh、max 本身就是粉红色，会被看成报警。</li>
+  <li><b>下一轮虚影：</b>一直显示，还是只在 70% 以上显示？</li>
+  <li><b>窗口大小：</b>数字写成 <code>41%</code> 还是 <code>41%/1M</code>？</li>
+  <li><b>按 token 数提前变色：</b>topping 在 1M 窗口下用到 15 万 token 就开始变色，理由是 context 越长模型越容易“走神”。这一条对不同模型并不一样，我建议不做，只看百分比。</li>
+</ol>
+
+<script>
+// ── pi dark theme (resolved with pi's own loader, truecolor) ──
+const C={text:"#dee0e1",muted:"#9da5a9",dim:"#7e888e",accent:"#a798d7",success:"#68b78d",warning:"#cd9a22",error:"#ea7f81",
+  mdLink:"#69add0",syntaxString:"#de8d5a",track:"#484e52",bg:"#18191e",userBg:"rgb(33,59,73)"};
+const THINK={off:"#6c767b",minimal:"#68808d",low:"#5489a4",medium:"#6185cc",high:"#9776e5",xhigh:"#de54c1",max:"#fe5462"};
+
+// ── OKLab mixing ──
+const hex2rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
+const lin=c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4, gam=c=>c<=.0031308?12.92*c:1.055*c**(1/2.4)-.055;
+function toLab([r,g,b]){r=lin(r);g=lin(g);b=lin(b);
+  const l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*b),m=Math.cbrt(.2119034982*r+.6806995451*g+.1073969566*b),s=Math.cbrt(.0883024619*r+.2817188376*g+.6299787005*b);
+  return[.2104542553*l+.793617785*m-.0040720468*s,1.9779984951*l-2.428592205*m+.4505937099*s,.0259040371*l+.7827717662*m-.808675766*s];}
+function fromLab([L,a,b]){const l=(L+.3963377774*a+.2158037573*b)**3,m=(L-.1055613458*a-.0638541728*b)**3,s=(L-.0894841775*a-1.291485548*b)**3;
+  return[4.0767416621*l-3.3077115913*m+.2309699292*s,-1.2684380046*l+2.6097574011*m-.3413193965*s,-.0041960863*l-.7034186147*m+1.707614701*s].map(c=>Math.round(Math.min(1,Math.max(0,gam(c)))*255));}
+const mix=(h1,h2,t)=>{const A=toLab(hex2rgb(h1)),B=toLab(hex2rgb(h2));const[r,g,b]=fromLab(A.map((v,i)=>v+(B[i]-v)*t));return"#"+[r,g,b].map(x=>x.toString(16).padStart(2,"0")).join("");};
+
+// ── palettes: stops along the gauge (0..1) ──
+const PAL={
+  aurora:t=>[[0,C.mdLink],[.45,C.success],[.72,C.warning],[.9,C.error],[1,C.error]],
+  green: t=>[[0,C.success],[.55,C.success],[.72,C.warning],[.9,C.error],[1,C.error]],
+  mono:  t=>[[0,"#8d93a6"],[.5,"#a3a8bb"],[.7,C.warning],[.9,C.error],[1,C.error]],
+  tinted:t=>[[0,THINK[t]],[.55,THINK[t]],[.72,C.warning],[.9,C.error],[1,C.error]],
+};
+function colorAt(stops,x){for(let i=1;i<stops.length;i++){const[a,ca]=stops[i-1],[b,cb]=stops[i];if(x<=b)return mix(ca,cb,b===a?0:(x-a)/(b-a));}return stops.at(-1)[1];}
+
+// ── segments: {t,c} text | {cell,c} gauge cell ──
+const T=(t,c)=>({t,c});
+const width=segs=>segs.reduce((n,s)=>n+(s.cell?1:[...s.t].length),0);
+
+function cellsFor(W){return W>=110?20:W>=80?14:W>=56?10:W>=44?6:0;}
+function alertOf(st){return st.pct==null?null:st.pct>=90?"error":st.pct>=70?"warning":null;}
+
+function gauge(st,n,o,frame=0){
+  const stops=PAL[o.pal](st.think), out=[];
+  if(st.phase==="compacted"){for(let i=0;i<n;i++)out.push({cell:1,c:mix(C.track,C.bg,.25)});return out;}
+  const used=st.pct<=0?0:Math.max(1,Math.round(st.pct/100*n));
+  const next=o.ghost&&st.next&&st.phase!=="compacting"?Math.max(used+1,Math.round((st.pct+st.next)/100*n)):used;
+  for(let i=0;i<n;i++){
+    const c=colorAt(stops,(i+.5)/n);
+    if(i<used){
+      if(st.phase==="compacting"){const d=Math.abs(i-(frame%(used+6)-3));out.push({cell:1,c:mix(mix(c,C.bg,.45),"#ffffff",d<1?.35:d<2?.15:0)});}
+      else out.push({cell:1,c});
+    } else if(i<Math.min(n,next)) out.push({cell:1,c:mix(c,C.bg,.62)});
+    else out.push({cell:1,c:mix(C.track,C.bg,.25)});
+  }
+  return out;
+}
+function label(st,o,short){
+  const a=alertOf(st);
+  if(st.phase==="compacting")return[T("compacting…",C.dim)];
+  if(st.phase==="compacted")return[T("compacted",C.dim)];
+  const col=a?C[a]:C.muted, out=[T(`${Math.round(st.pct)}%`,col)];
+  if(o.win&&!short)out.push(T("/1M",C.dim));
+  const turns=st.next?Math.max(0,Math.floor((100-st.pct)/st.next)):null;
+  if(a&&turns!=null)out.push(T(short?` ≈${turns}`:` ≈${turns} turn${turns===1?"":"s"} left`,col));
+  return out;
+}
+
+// ── editor bottom border with docked gauge ──
+function bottomBorder(st,W,o,frame){
+  const bc=THINK[st.think];
+  if(o.dock!=="docked")return[T("─".repeat(W),bc)];
+  const n=cellsFor(W);
+  let lab=label(st,o,W<80);
+  let mid=[...(n?[T(" ",bc),...gauge(st,n,o,frame)]:[]),T(" ",bc),...lab,T(" ",bc)];
+  const tail=2, run=W-width(mid)-tail;
+  if(run<4)return[T("─".repeat(W),bc)];
+  return[T("─".repeat(run),bc),...mid,T("─".repeat(tail),bc)];
+}
+
+// ── footer line ──
+function footer(st,W,o,frame){
+  const docked=o.dock==="docked";
+  for(let lv=0;lv<12;lv++){
+    const sep=T(lv>=1?" · ":"  ·  ",C.track);
+    const L=[],R=[];
+    L.push(T(lv>=2?st.base:st.path,C.text));
+    if(lv<5){L.push(T("  "));L.push(T(st.branch,C.accent));if(st.dirty)L.push(T("*",C.warning));}
+    if(lv<3&&st.statuses.length){L.push(sep);L.push(T(lv>=1&&st.statuses.length>1?`+${st.statuses.length}`:st.statuses.join(" · "),C.dim));}
+    const parts=[];
+    if(st.phase==="running"&&lv<6)parts.push([T(st.elapsed,C.mdLink)]);
+    if(lv<7){const m=[T(st.model,C.text)];if(lv<4&&st.think!=="off")m.push(T(" "),T(st.think,THINK[st.think]));parts.push(m);}
+    if(!docked){const n=lv<3?10:lv<6?6:0;parts.push([...(n?[...gauge(st,n,o,frame),T(" ")]:[]),...label(st,o,lv>=3)]);}
+    const cost=[T(st.sub?"sub":`$${st.cost.toFixed(2)}`,C.syntaxString)];
+    if(st.phase==="running"&&st.delta&&lv<8)cost.push(T(` +${st.delta.toFixed(2)}`,C.dim));
+    if(st.cost>=.005||st.sub)parts.push(cost);
+    parts.forEach((p,i)=>{if(i)R.push(sep);R.push(...p);});
+    const pad=W>=40?1:0, inner=W-2*pad, gap=inner-width(L)-width(R);
+    if(gap>=2||lv===11){
+      const g=Math.max(1,gap);
+      return[T(" ".repeat(pad)),...L,T(" ".repeat(g)),...R,T(" ".repeat(pad))];
+    }
+  }
+}
+
+// ── html ──
+const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+function html(segs,W){
+  let s="";for(const g of segs){
+    if(g.cell)s+=`<i class="c" style="background:linear-gradient(90deg,${g.c} 0 62.5%,transparent 62.5%)"></i>`;
+    else s+=g.c?`<span style="color:${g.c}">${esc(g.t)}</span>`:esc(g.t);
+  }
+  return`<div class="ln" style="width:calc(${W}ch + 28px)">${s}</div>`;
+}
+const fit=(s,W)=>{const a=[...s];return a.length>W?a.slice(0,W).join(""):s+" ".repeat(W-a.length);};
+
+const BASE={path:"pi-things/pi-footer",base:"pi-footer",branch:"main",dirty:false,statuses:[],model:"Sonnet 4.5",think:"medium",
+  pct:12,next:3,cost:.08,delta:0,phase:"idle",elapsed:"",sub:false};
+const STATES=[
+  ["空闲 · 12%",{}],
+  ["运行中 · 41%",{phase:"running",elapsed:"1m23s",pct:41,next:4,cost:.46,delta:.04,dirty:true,statuses:["mcp 3"],think:"high"}],
+  ["偏紧 · 78%",{pct:78,next:5.5,cost:1.2,dirty:true,think:"low"}],
+  ["危险 · 93%",{pct:93,next:5,cost:1.38,dirty:true,think:"xhigh"}],
+  ["压缩中",{phase:"compacting",pct:93,cost:1.38}],
+  ["刚压缩完（下次回复前未知）",{phase:"compacted",pct:null,cost:1.41}],
+  ["新 session（还没有预测数据）",{pct:2,next:null,cost:.01}],
+];
+
+function screen(st,W,o,frame,{transcript=false,editor="",top=true}={}){
+  const rows=[];
+  if(transcript){
+    rows.push(html([T(" "+fit("make the footer gorgeous, and fast",W-2)+" ",C.text)],W).replace('style="',`style="background:${C.userBg};`));
+    rows.push(html([T("")],W));
+    rows.push(html([T(" Moved the context gauge into the editor's bottom border.",C.text)],W));
+    rows.push(html([T(" Render path is now a cached string splice — no session scans.",C.text)],W));
+    rows.push(html([T("")],W));
+    if(st.phase==="running")rows.push(html([T(" ⠹ ",C.accent),T("Working…",C.muted)],W));
+    else if(st.phase==="compacting")rows.push(html([T(" ⠹ ",C.accent),T("Compacting context…",C.muted)],W));
+    else rows.push(html([T("")],W));
+  }
+  const bc=THINK[st.think];
+  if(top)rows.push(html([T("─".repeat(W),bc)],W));
+  rows.push(html([T(editor,C.text),{cell:1,c:"#c9ccd3"}],W).replace(/linear-gradient\(90deg,#c9ccd3 0 62.5%,transparent 62.5%\)/,"#c9ccd3"));
+  rows.push(html(bottomBorder(st,W,o,frame),W));
+  rows.push(html(footer(st,W,o,frame),W));
+  return rows.join("");
+}
+
+// ── hero ──
+const $=id=>document.getElementById(id);
+let frame=0;
+function hero(){
+  const pct=+$("pct").value, phase=$("phase").value;
+  $("pctv").textContent=pct+"%";$("wv").textContent=$("w").value;
+  const st={...BASE,pct,next:4.5,phase,think:$("think").value,dirty:true,statuses:["mcp 3"],
+    elapsed:"1m23s",cost:.46+pct/100,delta:.04};
+  if(phase==="compacted")st.pct=null;
+  const o={pal:$("pal").value,dock:$("dock").value,ghost:$("ghost").checked,win:$("win").checked};
+  $("hero").innerHTML=screen(st,+$("w").value,o,frame,{transcript:true,editor:"make it pop "});
+}
+document.querySelectorAll("#ctrl input,#ctrl select").forEach(e=>e.addEventListener("input",hero));
+setInterval(()=>{if($("phase").value==="compacting"){frame++;hero();}},90);
+hero();
+
+const DEF={pal:"aurora",dock:"docked",ghost:true,win:false};
+
+// ── anatomy ──
+{
+  const st={...BASE,pct:78,next:6};
+  $("anatA").innerHTML=html([T(" ",C.text),...gauge(st,20,DEF),T(" "),T("78%",C.warning)],27);
+  // topping: 4 hard bands (50/70/90), filled ▋ per position, ░ trough
+  const band=x=>x>=.9?"#ea5b5f":x>=.7?"#e38a2c":x>=.5?"#e3c31f":"#8b8fb0";
+  const segs=[T(" ")];const used=Math.round(.879*20);
+  for(let i=0;i<20;i++)segs.push(i<used?{cell:1,c:band((i+1)/20)}:T("░","#4a4d58"));
+  segs.push(T(" "),T("87.9%/272K","#7e8396"));
+  $("anatB").innerHTML=html(segs,33);
+}
+
+// ── states ──
+$("states").innerHTML=STATES.map(([n,o])=>`<div><div class="tag">${n}</div><div class="term">${screen({...BASE,...o},120,DEF,3,{top:false})}</div></div>`).join("");
+
+// ── palettes ──
+$("pals").innerHTML=Object.keys(PAL).map(p=>{
+  const desc={aurora:"蓝 → 绿 → 黄 → 红",green:"绿到 55%，再升温",mono:"灰到 50%，再升温（topping 式）",tinted:"跟随 thinking 颜色"}[p];
+  return`<div class="nm">${p}<i>${desc}</i></div>`+[12,41,78,93].map(v=>{
+    const st={...BASE,pct:v,next:5,think:"high"};
+    return`<div class="term" style="padding:6px 0">${html([...gauge(st,20,{...DEF,pal:p}),T(" "),...label(st,DEF,true)],27)}</div>`;
+  }).join("");
+}).join("");
+
+// ── widths ──
+{
+  const st={...BASE,...STATES[1][1]};
+  $("widths").innerHTML=[160,120,90,64,48,38].map(w=>`<div class="tag">${w} 列</div>`+screen(st,w,DEF,0,{top:false})).join("");
+}
+</script>
+</body>
+</html>
