@@ -19,7 +19,7 @@ export type Role =
 	| "fill"
 	| "track"
 	| "pct"
-	| "turns"
+	| "note"
 	| "cost"
 	| "delta"
 	| "sep";
@@ -176,11 +176,11 @@ export function build(v: View, level: number, style: Style = DEFAULT_STYLE): { l
 		ctx.push(...gauge(v.ctxPercent, at(L.shortGauge) ? GAUGE_SHORT : GAUGE, sev, style), { text: " " });
 	}
 	if (v.phase === "compacting") {
-		ctx.push({ text: "compacting…", role: "pct" });
+		ctx.push({ text: "compacting…", role: "note" });
 		right.push(ctx);
 	} else {
 		ctx.push({ text: v.ctxPercent === null ? "?%" : `${Math.round(v.ctxPercent)}%`, role: "pct", alert: sev });
-		if (sev && v.turnsLeft !== undefined) ctx.push({ text: "  " }, { text: formatTurns(v.turnsLeft, at(L.noPath)), role: "turns", alert: sev });
+		if (sev && v.turnsLeft !== undefined) ctx.push({ text: "  " }, { text: formatTurns(v.turnsLeft, at(L.noPath)), role: "note", alert: sev });
 		right.push(ctx);
 
 		if (v.sub) {

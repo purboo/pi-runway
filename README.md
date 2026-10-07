@@ -35,7 +35,7 @@ There is nothing to configure.
 ## Design rules
 
 - **One line.** It uses 1–2 fewer rows than the built-in footer, so more of the screen goes to the conversation.
-- **Dark cockpit.** One bright anchor (the model). Values are muted, qualifiers dimmer, structure faint. Color appears only when something needs your attention.
+- **Your theme's colors.** Every element has a fixed role color taken from the active pi theme (the thinking level uses the same color pi gives the editor border), so it matches any theme. Context turns yellow at 70% and red at 90%, overriding everything else.
 - **No icons.** It uses only `*·━≈→`, so it does not need a Nerd Font.
 - **Fixed-width numbers.** Changing values do not shift the rest of the layout.
 - **Works with every provider.** Anything that only some providers report is left out, such as token breakdowns, cache hit rate, and tok/s.

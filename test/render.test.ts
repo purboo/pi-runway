@@ -126,14 +126,10 @@ test("shortModel", () => {
 	expect(shortModel("Gemini 2.5 Pro")).toBe("Gemini 2.5 Pro");
 });
 
-describe("skins", () => {
-	test("alerts override every skin, thinking follows its level", async () => {
-		const { SKINS, tokenFor } = await import("../src/skin.ts");
-		for (const skin of Object.values(SKINS)) {
-			expect(tokenFor({ text: "93%", role: "pct", alert: "error" }, skin)).toBe("error");
-			expect(tokenFor({ text: "x" }, skin)).toBeUndefined();
-		}
-		expect(tokenFor({ text: "xhigh", role: "thinking" }, SKINS.vivid)).toBe("thinkingXhigh");
-		expect(tokenFor({ text: "weird", role: "thinking" }, SKINS.vivid)).toBe("dim");
-	});
+test("skin: alerts win, thinking follows its level, foreign text passes through", async () => {
+	const { tokenFor } = await import("../src/skin.ts");
+	expect(tokenFor({ text: "93%", role: "pct", alert: "error" })).toBe("error");
+	expect(tokenFor({ text: "x" })).toBeUndefined();
+	expect(tokenFor({ text: "xhigh", role: "thinking" })).toBe("thinkingXhigh");
+	expect(tokenFor({ text: "weird", role: "thinking" })).toBe("dim");
 });
