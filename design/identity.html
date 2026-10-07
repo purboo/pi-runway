@@ -60,7 +60,11 @@ p.note{margin:4px 0 10px;color:#8a9097;font-size:13px;max-width:1040px}
 <p class="note">色块表要靠减少格数来适应宽度；跑道线天然随宽度伸缩，任何宽度下都是完整的一条。</p>
 <div class="term" id="widths"></div>
 
-<h2>④ 设计原则</h2>
+<h2>④ 运行中：它在干什么</h2>
+<p class="note">一次运行的完整经过，从上往下按时间顺序。每一帧左侧的灰字是数据来源，全部来自 pi 统一的事件，不依赖哪家模型。平时只显示“在做什么”；某一步卡太久、需要你回应、或者出错时，才变颜色。</p>
+<div class="term" id="timeline"></div>
+
+<h2>⑤ 设计原则</h2>
 <div class="prin">
   <div><b>1 · 颜色只用来报信</b>文字一律是灰阶，分三层亮度。全屏只有一处颜色会变：跑道。颜色少，变化才会被注意到。<i>孤立效应：一堆彩色里多一块彩色，没人看得见</i></div>
   <div><b>2 · 面积代替数字</b>用掉的越多，彩色线越长、越热。余光就能读，不用盯着数字看。<i>前注意加工：长度和颜色不用专门看也能感知</i></div>
@@ -113,6 +117,7 @@ function money(st,lv){const o=[];
   o.push(T(`$${st.cost.toFixed(2)}`,C.muted));if(st.phase==="running"&&lv<2)o.push(T(` +${st.delta.toFixed(2)}`,C.dim));return o;}
 function sides(W,bc,inner){const pad=W-2-width(inner);return[T("│",bc),...inner,T(" ".repeat(Math.max(0,pad))),T("│",bc)];}
 function status(st,lv){ // pi's own working/compaction indicator, which pi already draws in the editor's top border
+  if(st.live)return st.live;
   if(st.phase==="running")return[T("⠹ ",C.accent),T("Working…",C.muted),...(lv<6?[T("  ·  ",C.track),T(st.elapsed,C.dim)]:[])];
   if(st.phase==="compacting")return[T("⠹ ",C.accent),T("Compacting context…",C.muted)];
   return null;}
@@ -192,6 +197,27 @@ function hero(){const pct=+$("pct").value,W=+$("w").value,phase=$("phase").value
 document.querySelectorAll("#ctrl input,#ctrl select").forEach(e=>e.addEventListener("input",hero));
 setInterval(()=>{if($("phase").value==="compacting"){frame++;hero();}},60);hero();
 
+{
+ const sp=T("⠹ ",C.accent), v=t=>T(t,C.muted), o=t=>T(t,C.dim), sep=T("  ·  ",C.track), el=t=>T(t,C.dim);
+ const F=[
+  ["agent_start → before_provider_request","请求已发出，模型还没开始回",[sp,v("waiting"),sep,el("0:02")]],
+  ["同上，超过 10 秒还没有第一个字","卡住了吗？计时变黄",[sp,v("waiting "),T("14s",C.warning),sep,el("0:14")]],
+  ["message_update · thinking_delta","",[sp,v("thinking"),sep,el("0:21")]],
+  ["message_update · toolcall_start / delta","模型正在写工具参数（大段 edit 会持续很久）",[sp,v("preparing "),o("edit"),sep,el("0:34")]],
+  ["tool_execution_start（bash）","参数里的命令 / 路径 / 关键词直接拿来当说明",[sp,v("bash  "),o("bun test"),sep,el("0:41")]],
+  ["tool_execution_start × 3（并行）","",[sp,v("3 tools  "),o("read ×2 · grep"),sep,el("0:52")]],
+  ["tool 运行超过 30 秒","",[sp,v("bash  "),o("bun run build  "),T("47s",C.warning),sep,el("1:39")]],
+  ["ui_prompt_start（扩展在等你回答）","唯一不转圈的状态：转圈 = 它在忙，实心点 = 轮到你",[T("● ",C.warning),T("needs you  ",C.warning),o("Delete 3 files?"),sep,el("1:52")]],
+  ["message_update · text_delta","",[sp,v("writing"),sep,el("2:05")]],
+  ["pi 的重试（RetryStatusIndicator）","pi 自己的倒计时，原样显示",[T("⠹ ",C.warning),v("Retrying (2/3) in 5s"),sep,el("2:31")]],
+  ["session_before_compact","下边框的跑道同时扫光",[sp,v("compacting"),sep,el("2:48")]],
+  ["agent_end · 成功","停在这里，直到你开始输入，回来就知道刚才跑完了、用了多久",[T("✓ ",C.success),v("done in 3m02s")]],
+  ["agent_end · stopReason = error","出错一直留着，直到下一次提问",[T("✗ ",C.error),T("stopped  ",C.error),o("429 rate limited")]],
+ ];
+ const W=96;
+ $("timeline").innerHTML=F.map(([src,why,live])=>`<div class="tag">${src}${why?` <span style="color:#7e848c">— ${why}</span>`:""}</div>`+
+   html(topBox({...BASE,live,think:"high",statuses:[]},W),W)).join("");
+}
 {const st={...BASE,...MOMENTS[2][1],phase:"running",elapsed:"1m23s",delta:.04,statuses:["mcp 3"]};
  $("widths").innerHTML=[150,120,90,64,46].map(w=>`<div class="tag">${w} 列</div>`+boxRows(st,w,"B",0).map(r=>html(r,w)).join("")).join("");}
 </script>
