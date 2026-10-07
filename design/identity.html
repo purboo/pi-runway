@@ -61,7 +61,7 @@ p.note{margin:4px 0 10px;color:#8a9097;font-size:13px;max-width:1040px}
 <div class="term" id="widths"></div>
 
 <h2>④ 运行中：它在干什么</h2>
-<p class="note">一次运行的完整经过，从上往下按时间顺序。每一帧左侧的灰字是数据来源，全部来自 pi 统一的事件，不依赖哪家模型。平时只显示“在做什么”；某一步卡太久、需要你回应、或者出错时，才变颜色。</p>
+<p class="note">左边的目录和分支一直在原位，运行状态接在它后面，开始运行时什么都不会跳动。终端太窄时，先把路径缩成目录名，再收起分支，最后才让出位置。一次运行的完整经过，从上往下按时间顺序。每一帧左侧的灰字是数据来源，全部来自 pi 统一的事件，不依赖哪家模型。平时只显示“在做什么”；某一步卡太久、需要你回应、或者出错时，才变颜色。</p>
 <div class="term" id="timeline"></div>
 
 <h2>⑤ 设计原则</h2>
@@ -122,7 +122,9 @@ function status(st,lv){ // pi's own working/compaction indicator, which pi alrea
   if(st.phase==="compacting")return[T("⠹ ",C.accent),T("Compacting context…",C.muted)];
   return null;}
 function topBox(st,W){const bc=THINK[st.think];
-  for(let lv=0;lv<10;lv++){const L=status(st,lv)||where(st,lv),R=who(st,lv);
+  // "where" keeps its place at the far left at all times; activity follows it, so nothing jumps when a run starts.
+  for(let lv=0;lv<10;lv++){const act=status(st,lv),R=who(st,lv);
+    const L=act?[...(lv<5?[...where(st,[0,2,3,5,5][lv]),T(" ── ",bc)]:[]),...act]:where(st,lv);
     const run=R.length?W-8-width(L)-width(R):W-6-width(L);
     if(run>=3)return[T("╭─ ",bc),...L,T(" "+"─".repeat(run),bc),...(R.length?[T(" ",bc),...R,T(" ─╮",bc)]:[T("─╮",bc)])];}
   return[T("╭"+"─".repeat(W-2)+"╮",bc)];}
