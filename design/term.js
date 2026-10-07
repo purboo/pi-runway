@@ -18,8 +18,10 @@ const esc=s=>s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
 const BOX={"─":"h","━":"H","╍":"D","│":"v","╭":"tl","╮":"tr","╰":"bl","╯":"br"};
 function html(segs,W){let s="";for(const g of segs){
   if(g.cell){s+=`<i class="c" style="background:${g.solid?g.c:`linear-gradient(90deg,${g.c} 0 62.5%,transparent 62.5%)`}"></i>`;continue;}
-  let buf="";const flush=()=>{if(buf)s+=`<span${g.c?` style="color:${g.c}"`:""}>${esc(buf)}</span>`;buf="";};
-  for(const ch of g.t){if(BOX[ch]){flush();s+=`<i class="g ${BOX[ch]}" style="--k:${g.c||C.text}"></i>`;}else buf+=ch;}
+  let buf="";const flush=()=>{if(buf)s+=`<span style="${g.c?`color:${g.c};`:""}${g.b?"font-weight:700;":""}">${esc(buf)}</span>`;buf="";};
+  for(const ch of g.t){if(BOX[ch]){flush();s+=`<i class="g ${BOX[ch]}" style="--k:${g.c||C.text}"></i>`;}
+    else if(ch.codePointAt(0)>0x2000&&ch.codePointAt(0)<0x2e80||ch.codePointAt(0)>=0xe000&&ch.codePointAt(0)<0xf900||ch.codePointAt(0)>0xffff){flush();s+=`<span class="w1" style="${g.c?`color:${g.c};`:""}">${ch}</span>`;}
+    else buf+=ch;}
   flush();}
   return`<div class="ln" style="width:calc(${W}ch + 28px)">${s}</div>`;}
 const alertOf=p=>p==null?null:p>=90?"error":p>=70?"warning":null;
