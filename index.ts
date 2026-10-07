@@ -5,21 +5,15 @@
 import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ContextUsage, ExtensionAPI, ExtensionContext, ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import { layout, shortModel, type Tone, type View } from "./src/render.ts";
+import { layout, shortModel, type View } from "./src/render.ts";
+import { DEFAULT_SKIN, SKINS, type SkinName, tokenFor } from "./src/skin.ts";
+
+/** Undocumented on purpose: lets us compare skins live. Not a setting. */
+const skin = SKINS[(process.env.PI_RUNWAY_SKIN as SkinName) in SKINS ? (process.env.PI_RUNWAY_SKIN as SkinName) : DEFAULT_SKIN];
 import { displayPath, latestResponse, type MessageLike, runEnds, sanitize, totalCost, turnsLeft } from "./src/state.ts";
 
 const VIRTUAL_API = "pi-virtual";
 const GIT_TIMEOUT_MS = 3000;
-
-/** Render tones → theme tokens. `faint` is the quietest color every built-in theme defines. */
-const TOKENS = {
-	text: "text",
-	muted: "muted",
-	dim: "dim",
-	faint: "scrollbarTrack",
-	warning: "warning",
-	error: "error",
-} as const satisfies Record<Tone, string>;
 
 /** Human name, vendor prefix dropped: "Claude Sonnet 4.5" → "Sonnet 4.5". */
 function displayName(model: { id: string; name?: string } | undefined): string | undefined {
@@ -172,9 +166,12 @@ export default function runway(pi: ExtensionAPI) {
 					requestRender = () => {};
 				},
 				render(width: number): string[] {
-					const faintDistinct = theme.fg(TOKENS.faint, "x") !== theme.fg(TOKENS.muted, "x");
+					const faintDistinct = theme.fg(tokenFor({ text: "", role: "track" }, skin) ?? "dim", "x") !== theme.fg(tokenFor({ text: "", role: "fill" }, skin) ?? "dim", "x");
 					const line = layout(view(), width, visibleWidth, { faintDistinct })
-						.map((s) => (s.tone ? theme.fg(TOKENS[s.tone], s.text) : s.text))
+						.map((s) => {
+							const token = tokenFor(s, skin);
+							return token ? theme.fg(token, s.text) : s.text;
+						})
 						.join("");
 					return [truncateToWidth(line, width)];
 				},
