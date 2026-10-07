@@ -106,8 +106,9 @@ function where(st,deco,lv){
 function who(st,deco,lv){
   if(lv>=4)return[];
   const tc=THINK[st.think];
-  if(deco==="plain")return[T(st.model,C.text)];
-  return[T(deco==="nerd"?"\udb81\udea9 ":"◆ ",tc),b(st.model,C.text)];
+  const hint=st.state==="run"&&lv<2?[T("esc to interrupt",C.dim),T(" ── ",borderColor(st))]:[];
+  if(deco==="plain")return[...hint,T(st.model,C.text)];
+  return[...hint,T(deco==="nerd"?"\udb81\udea9 ":"◆ ",tc),b(st.model,C.text)];
 }
 function borderColor(st){return st.state==="you"?C.warning:st.state==="err"?C.error:THINK[st.think];}
 function topRow(st,W,deco){
@@ -119,7 +120,7 @@ function topRow(st,W,deco){
 }
 function bottomRow(st,W){
   const bc=borderColor(st), a=alertOf(st.pct), col=a?C[a]:C.muted, R=[];
-  if(a){const t=Math.floor((100-st.pct)/st.next);R.push(T(`${Math.round(st.pct)}%`,col),...(W>=60?[T(`  ≈${t} turn${t===1?"":"s"}`,col)]:[]),T("  "));}
+  {const t=Math.floor((100-st.pct)/st.next);R.push(T(`${Math.round(st.pct)}%`,a?col:C.dim),...(a&&W>=60?[T(`  ≈${t} turn${t===1?"":"s"}`,col)]:[]),T("  "));}
   if(st.cost>=.005)R.push(T(`$${st.cost.toFixed(2)}`,C.muted));
   if(R.length&&R.at(-1).t==="  ")R.pop();
   const n=W-2-(R.length?width(R)+3:1);
@@ -142,7 +143,7 @@ function box(st,W,deco,frame){
   if(st.state==="run"&&frame!=null)top=comet(top,frame%(W+20));
   return[top,editor(W,borderColor(st)),bottomRow(st,W)].map(r=>html(r,W)).join("");
 }
-const STATES=[["空闲",{state:"idle"}],["运行中（动画）",{state:"run"}],["等你回答",{state:"you"}],["出错 · 留到下次提问",{state:"err"}]];
+const STATES=[["空闲 · 41%",{state:"idle",pct:41}],["运行中（动画）· 跑 sleep 800 也是这样",{state:"run",pct:41}],["等你回答",{state:"you"}],["出错 · 留到下次提问",{state:"err"}]];
 const W=100;
 function draw(f){
   $("states").innerHTML=STATES.map(([n,o])=>`<div class="tag">${n}</div>`+box({...ST,...o},W,"sym",f)).join("");
