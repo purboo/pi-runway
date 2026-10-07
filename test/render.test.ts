@@ -5,7 +5,7 @@ const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
 const measure = (s: string) => [...strip(s)].length;
 const text = (segs: Seg[]) => segs.map((s) => strip(s.text)).join("");
 const squash = (segs: Seg[]) => text(segs).replace(/ +/g, " ").trim();
-const tones = (segs: Seg[], needle: string) => segs.filter((s) => s.text.includes(needle)).map((s) => s.tone);
+const tones = (segs: Seg[], needle: string) => segs.filter((s) => s.text.includes(needle)).map((s) => s.alert);
 
 const base: View = {
 	path: "pi-things/pi-footer",
@@ -59,10 +59,11 @@ describe("width", () => {
 });
 
 describe("states", () => {
-	test("quiet when healthy: one bright anchor, no alarm colors", () => {
+	test("no alerts when healthy", () => {
 		const segs = layout(v({ dirty: false }), 120, measure);
-		expect(segs.filter((s) => s.tone === "text").map((s) => s.text)).toEqual(["Opus 4.6"]);
-		expect(segs.some((s) => s.tone === "warning" || s.tone === "error")).toBe(false);
+		expect(segs.filter((s) => s.role === "model").map((s) => s.text)).toEqual(["Opus 4.6"]);
+		expect(segs.filter((s) => s.role === "thinking").map((s) => s.text)).toEqual(["high"]);
+		expect(segs.some((s) => s.alert)).toBe(false);
 	});
 
 	test("warning at 70, error at 90, with runway", () => {
@@ -79,11 +80,11 @@ describe("states", () => {
 		expect(at({ ctxPercent: 50, turnsLeft: 9 })).not.toContain("turn");
 	});
 
-	test("gauge: track is faint, any usage shows at least one cell", () => {
+	test("gauge: separate fill and track, any usage shows at least one cell", () => {
 		const segs = layout(v({ ctxPercent: 2 }), 120, measure);
-		expect(segs.filter((s) => s.text.includes("━")).map((s) => [s.text.length, s.tone])).toEqual([
-			[1, "muted"],
-			[9, "faint"],
+		expect(segs.filter((s) => s.text.includes("━")).map((s) => [s.text.length, s.role])).toEqual([
+			[1, "fill"],
+			[9, "track"],
 		]);
 	});
 
@@ -123,4 +124,16 @@ test("shortModel", () => {
 	expect(shortModel("claude-sonnet-4-5-20250929")).toBe("sonnet-4-5");
 	expect(shortModel("openrouter/openai/gpt-5")).toBe("gpt-5");
 	expect(shortModel("Gemini 2.5 Pro")).toBe("Gemini 2.5 Pro");
+});
+
+describe("skins", () => {
+	test("alerts override every skin, thinking follows its level", async () => {
+		const { SKINS, tokenFor } = await import("../src/skin.ts");
+		for (const skin of Object.values(SKINS)) {
+			expect(tokenFor({ text: "93%", role: "pct", alert: "error" }, skin)).toBe("error");
+			expect(tokenFor({ text: "x" }, skin)).toBeUndefined();
+		}
+		expect(tokenFor({ text: "xhigh", role: "thinking" }, SKINS.vivid)).toBe("thinkingXhigh");
+		expect(tokenFor({ text: "weird", role: "thinking" }, SKINS.vivid)).toBe("dim");
+	});
 });

@@ -1,21 +1,36 @@
 /**
- * Pure layout: View + width → styled segments for exactly one line.
+ * Pure layout: View + width → segments for exactly one line.
  * No pi imports, so it is testable in isolation; the caller injects a width measure.
  *
- * Visual language (three tones + alarm):
- *   text   — the one anchor: model name
- *   muted  — values: where, numbers
- *   dim    — qualifiers: branch, thinking level, run delta, statuses
- *   faint  — structure: separators, empty gauge track
- *   warning/error — only when something needs attention
+ * Segments carry a semantic role, not a color. The caller maps roles to theme tokens (see src/skin.ts),
+ * so the line follows whatever theme the user runs. `alert` marks segments that must turn
+ * warning/error regardless of role.
  */
 
-export type Tone = "text" | "muted" | "dim" | "faint" | "warning" | "error";
+export type Role =
+	| "path"
+	| "branch"
+	| "dirty"
+	| "status"
+	| "elapsed"
+	| "model"
+	| "via"
+	| "thinking"
+	| "fill"
+	| "track"
+	| "pct"
+	| "turns"
+	| "cost"
+	| "delta"
+	| "sep";
 
-/** A run of text. `tone` undefined = plain or pre-styled text (other extensions' statuses, padding). */
+export type Alert = "warning" | "error";
+
+/** A run of text. `role` undefined = plain or pre-styled text (other extensions' statuses, padding). */
 export interface Seg {
 	text: string;
-	tone?: Tone;
+	role?: Role;
+	alert?: Alert;
 }
 
 export interface View {
@@ -80,7 +95,7 @@ const L = {
 } as const;
 export const MAX_LEVEL = 10;
 
-export function severity(percent: number | null): "warning" | "error" | undefined {
+export function severity(percent: number | null): Alert | undefined {
 	if (percent === null) return undefined;
 	if (percent >= 90) return "error";
 	if (percent >= 70) return "warning";
@@ -112,11 +127,11 @@ export function shortModel(name: string): string {
 		.replace(/^claude[- ]/i, "");
 }
 
-function gauge(percent: number, cells: number, tone: Tone | undefined, style: Style): Seg[] {
+function gauge(percent: number, cells: number, alert: Alert | undefined, style: Style): Seg[] {
 	const filled = percent < 0.5 ? 0 : Math.max(1, Math.min(cells, Math.round((percent / 100) * cells)));
 	return [
-		{ text: "━".repeat(filled), tone: tone ?? "muted" },
-		{ text: (style.faintDistinct ? "━" : "─").repeat(cells - filled), tone: "faint" },
+		{ text: "━".repeat(filled), role: "fill", alert },
+		{ text: (style.faintDistinct ? "━" : "─").repeat(cells - filled), role: "track" },
 	];
 }
 
@@ -127,32 +142,32 @@ export function build(v: View, level: number, style: Style = DEFAULT_STYLE): { l
 	const sev = severity(v.ctxPercent);
 
 	if (!at(L.noPath)) {
-		const where: Seg[] = [{ text: at(L.basename) ? v.base : v.path, tone: "muted" }];
+		const where: Seg[] = [{ text: at(L.basename) ? v.base : v.path, role: "path" }];
 		if (v.branch && !at(L.noBranch)) {
-			where.push({ text: `${BRANCH_GAP}${v.branch}`, tone: "dim" });
-			if (v.dirty) where.push({ text: "*", tone: "warning" });
+			where.push({ text: `${BRANCH_GAP}${v.branch}`, role: "branch" });
+			if (v.dirty) where.push({ text: "*", role: "dirty" });
 		}
 		left.push(where);
 	}
 	if (v.statuses.length > 0 && !at(L.noStatuses)) {
 		// "+1" says less than the status itself; only collapse when it saves room.
-		if (!at(L.statusCount) || v.statuses.length === 1) for (const s of v.statuses) left.push([{ text: s }]);
-		else left.push([{ text: `+${v.statuses.length}`, tone: "dim" }]);
+		if (!at(L.statusCount) || v.statuses.length === 1) for (const s of v.statuses) left.push([{ text: s, role: "status" }]);
+		else left.push([{ text: `+${v.statuses.length}`, role: "status" }]);
 	}
 
 	if (v.phase === "running" && v.elapsedMs >= 1000 && !at(L.noElapsed)) {
-		right.push([{ text: formatDuration(v.elapsedMs), tone: "muted" }]);
+		right.push([{ text: formatDuration(v.elapsedMs), role: "elapsed" }]);
 	}
 	if (v.model && !at(L.noModel)) {
 		const model: Seg[] = [];
 		if (at(L.shortModel)) {
-			model.push({ text: shortModel(v.routed ?? v.model), tone: "text" });
+			model.push({ text: shortModel(v.routed ?? v.model), role: "model" });
 		} else if (v.routed) {
-			model.push({ text: `${v.model} → `, tone: "dim" }, { text: v.routed, tone: "text" });
+			model.push({ text: `${v.model} → `, role: "via" }, { text: v.routed, role: "model" });
 		} else {
-			model.push({ text: v.model, tone: "text" });
+			model.push({ text: v.model, role: "model" });
 		}
-		if (v.thinking && !at(L.noThinking)) model.push({ text: ` ${v.thinking}`, tone: "dim" });
+		if (v.thinking && !at(L.noThinking)) model.push({ text: " " }, { text: v.thinking, role: "thinking" });
 		right.push(model);
 	}
 
@@ -161,19 +176,19 @@ export function build(v: View, level: number, style: Style = DEFAULT_STYLE): { l
 		ctx.push(...gauge(v.ctxPercent, at(L.shortGauge) ? GAUGE_SHORT : GAUGE, sev, style), { text: " " });
 	}
 	if (v.phase === "compacting") {
-		ctx.push({ text: "compacting…", tone: "muted" });
+		ctx.push({ text: "compacting…", role: "pct" });
 		right.push(ctx);
 	} else {
-		ctx.push({ text: v.ctxPercent === null ? "?%" : `${Math.round(v.ctxPercent)}%`, tone: sev ?? "muted" });
-		if (sev && v.turnsLeft !== undefined) ctx.push({ text: `  ${formatTurns(v.turnsLeft, at(L.noPath))}`, tone: sev });
+		ctx.push({ text: v.ctxPercent === null ? "?%" : `${Math.round(v.ctxPercent)}%`, role: "pct", alert: sev });
+		if (sev && v.turnsLeft !== undefined) ctx.push({ text: "  " }, { text: formatTurns(v.turnsLeft, at(L.noPath)), role: "turns", alert: sev });
 		right.push(ctx);
 
 		if (v.sub) {
-			right.push([{ text: "sub", tone: "dim" }]);
+			right.push([{ text: "sub", role: "cost" }]);
 		} else if (v.cost >= 0.005) {
-			const cost: Seg[] = [{ text: formatCost(v.cost), tone: "muted" }];
+			const cost: Seg[] = [{ text: formatCost(v.cost), role: "cost" }];
 			if (v.phase === "running" && v.delta >= 0.005 && !at(L.shortModel)) {
-				cost.push({ text: ` +${v.delta.toFixed(2)}`, tone: "dim" });
+				cost.push({ text: " " }, { text: `+${v.delta.toFixed(2)}`, role: "delta" });
 			}
 			right.push(cost);
 		}
@@ -184,7 +199,7 @@ export function build(v: View, level: number, style: Style = DEFAULT_STYLE): { l
 function join(groups: Seg[][], sep: string): Seg[] {
 	const out: Seg[] = [];
 	groups.forEach((g, i) => {
-		if (i > 0) out.push({ text: sep, tone: "faint" });
+		if (i > 0) out.push({ text: sep, role: "sep" });
 		out.push(...g);
 	});
 	return out;
