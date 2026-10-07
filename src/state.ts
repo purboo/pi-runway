@@ -81,26 +81,35 @@ export function runEnds(branch: readonly EntryLike[]): number[] {
 	return ends;
 }
 
-/** Runs left before the window is full, from the mean growth of the last runs. Needs ≥2 growth samples. */
-export function turnsLeft(ends: readonly number[], tokens: number | null, window: number): number | undefined {
-	if (tokens === null || window <= 0 || ends.length < 3) return undefined;
+/** Mean context growth per run over the last few runs, in tokens. Needs ≥2 growth samples. */
+export function runGrowth(ends: readonly number[]): number | undefined {
+	if (ends.length < 3) return undefined;
 	const recent = ends.slice(-(WINDOW + 1));
 	const growth = (recent[recent.length - 1] - recent[0]) / (recent.length - 1);
-	if (growth <= 0) return undefined;
+	return growth > 0 ? growth : undefined;
+}
+
+/** Runs left before the window is full, from the mean growth of the last runs. */
+export function turnsLeft(ends: readonly number[], tokens: number | null, window: number): number | undefined {
+	const growth = runGrowth(ends);
+	if (tokens === null || window <= 0 || growth === undefined) return undefined;
 	return Math.max(0, Math.floor((window - tokens) / growth));
 }
 
-/** Where we are: "repo/sub/dir" inside git, else the last two segments ("~" aware). */
-export function displayPath(cwd: string, gitRoot: string | undefined, home: string | undefined): { path: string; base: string } {
-	const base = basename(cwd) || cwd;
+/**
+ * The shortest name that says which project this is: "repo/sub/dir" inside git ("repo" when narrow),
+ * otherwise the folder name, "~" at home.
+ */
+export function displayPath(cwd: string, gitRoot: string | undefined, home: string | undefined): { path: string; repo: string } {
 	if (gitRoot) {
+		const repo = basename(gitRoot) || gitRoot;
 		const rel = relative(gitRoot, cwd);
-		const path = rel && !rel.startsWith("..") ? [basename(gitRoot), ...rel.split(sep)].join("/") : basename(gitRoot);
-		return { path, base };
+		const inside = rel && !rel.startsWith("..");
+		return { path: inside ? [repo, ...rel.split(sep)].join("/") : repo, repo };
 	}
-	if (home && cwd === home) return { path: "~", base: "~" };
-	const parts = cwd.split(sep).filter(Boolean);
-	return { path: parts.slice(-2).join("/") || cwd, base };
+	if (home && cwd === home) return { path: "~", repo: "~" };
+	const base = basename(cwd) || cwd;
+	return { path: base, repo: base };
 }
 
 /** Status texts are single-line by contract; enforce it. */

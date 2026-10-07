@@ -1,16 +1,10 @@
 # pi-runway
 
-**One line. Zero config. Silent until it matters — then it tells you how many turns you have left.**
+**The editor's frame tells you everything — and nothing you don't need.**
 
-A footer for [pi](https://pi.dev) that replaces the built-in 2–3 line footer with a single line.
+An editor frame for [pi](https://pi.dev). The top edge shows where you are and which model you're talking to. The bottom edge *is* your context: it fills up like a runway. The frame's color and motion tell you whose turn it is. It replaces pi's footer, so you get those rows back for the conversation.
 
 ![pi-runway](https://raw.githubusercontent.com/purboo/pi-runway/main/design/preview.png)
-
-```
- pi-footer  main*  ·  mcp 3            1m23s  ·  Opus 4.6 high  ·  ━━━━━━━━━━ 38%  ·  $0.46 +0.04
- pi-footer  main*                      Opus 4.6 high  ·  ━━━━━━━━━━ 78%  ≈4 turns left  ·  $1.20
-                                                     └── yellow at 70%, red at 90%
-```
 
 ## Install
 
@@ -20,26 +14,54 @@ pi install npm:pi-runway
 
 There is nothing to configure.
 
-## What it shows
+## Reading it
+
+```
+╭─ pi-footer  ⎇ feat/x* ──────────────────────────── esc to interrupt ── ◆ Sonnet 4.5 ─╮
+│ make it pop█                                                                          │
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╍╍╍╍────────── 78%  ≈4 turns  $1.20 ─╯
+```
+
+**Top edge**
 
 | | |
 |---|---|
-| `pi-footer  main*` | Repo and subdirectory, plus the git branch. A yellow `*` means the working tree has changes. |
-| `mcp 3` | Status text set by other extensions through `ctx.ui.setStatus()`. Several statuses collapse to `+N` when the line is too narrow. |
-| `1m23s` | Elapsed time of the current run. Shown only while the agent is working. |
-| `Opus 4.6 high` | Model (its human name, vendor prefix dropped) and thinking level. The thinking level is hidden when it is off. A routed virtual model is shown as `auto → model`. |
-| `━━━━━━━━━━ 38%` | Context usage. The used part is lit, the rest is a faint track. |
-| `≈4 turns left` | Estimated number of prompts left before the context window is full, based on how much the context grew over your last three prompts. Shown only at 70% or more. |
-| `$0.46 +0.04` | Total session cost, plus what the current run has cost so far (only while it runs). Costs under a cent are hidden. Subscriptions show `sub`. |
+| `pi-footer` | Repo name, plus the subdirectory if you're in one (`pi-footer/src`). Outside git: the folder name. |
+| `⎇ feat/x` | Branch — only when you're not on the default branch. |
+| `*` | Uncommitted changes. |
+| `mcp 3` | Status text from other extensions (`ctx.ui.setStatus()`). |
+| `esc to interrupt` | Only while the agent works: the one thing you can do then. |
+| `◆ Sonnet 4.5` | The model. `◆` takes the color of the thinking level (the same color pi uses), and the level's name shows for 2 seconds after you change it. A provider prefix appears only when the same model is available from more than one provider. A routed virtual model shows as `auto → model`. |
+
+**Bottom edge**
+
+| | |
+|---|---|
+| `━━━━━━` | Context used. Cool colors while there's room, warmer as it fills. |
+| `╍╍╍╍` | From 70%: how much the next prompt will probably use. |
+| `78%` | Context used. Dim below 70%, yellow from 70%, red from 90%. |
+| `≈4 turns` | From 70%: prompts left before the window is full, from how much your last three prompts grew it. |
+| `$1.20` | Session cost, pay-per-token only. Hidden on subscriptions and when there is no price. |
+
+**The frame itself**
+
+| | |
+|---|---|
+| Thinking-level color, still | Idle. Your turn. |
+| A light running along the top | The agent is working — however long it takes. |
+| Yellow, with `●` | An extension is waiting for your answer. |
+| Red, with `✗` | The last run failed. Stays until your next prompt. |
+
+pi's own retry and compaction messages show as usual.
 
 ## Design rules
 
-- **One line.** It uses 1–2 fewer rows than the built-in footer, so more of the screen goes to the conversation.
-- **Your theme's colors.** Every element has a fixed role color taken from the active pi theme (the thinking level uses the same color pi gives the editor border), so it matches any theme. Context turns yellow at 70% and red at 90%, overriding everything else.
-- **No icons.** It uses only `*·━≈→`, so it does not need a Nerd Font.
-- **Fixed-width numbers.** Changing values do not shift the rest of the layout.
-- **Works with every provider.** Anything that only some providers report is left out, such as token breakdowns, cache hit rate, and tok/s.
-- **Graceful when narrow.** Separators tighten → statuses collapse to `+N` → the path shortens to its last directory → the bar shrinks, then disappears → thinking level → branch → model name shortens, then disappears → path. Context usage and cost always stay.
+- **Color only for signals.** Everything is quiet until something needs you.
+- **Your theme's colors.** Every color comes from the active pi theme.
+- **No Nerd Font needed.** Only standard Unicode symbols.
+- **Works with every provider.** Nothing that only some providers report.
+- **Graceful when narrow.** Things step aside one at a time; the context reading and the run-state mark always stay.
+- **Fast.** Nothing is computed while you type. The frame is built from cached strings; session data is read on events (end of a message, end of a run, compaction, model change), and git only after a tool may have touched files.
 
 ## Development
 

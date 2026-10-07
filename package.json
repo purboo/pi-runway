@@ -1,7 +1,7 @@
 {
   "name": "pi-runway",
-  "version": "0.1.0",
-  "description": "One line. Zero config. Silent until it matters — then it tells you how many turns you have left.",
+  "version": "0.2.0",
+  "description": "The editor frame tells you everything: where you are, the model, a context runway, and whose turn it is. Zero config, fast.",
   "type": "module",
   "license": "MIT",
   "author": "purboo",
@@ -17,7 +17,9 @@
     "pi-package",
     "pi-extension",
     "footer",
-    "statusline"
+    "statusline",
+    "editor",
+    "context"
   ],
   "files": [
     "index.ts",
