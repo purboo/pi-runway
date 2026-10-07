@@ -1,17 +1,20 @@
-// Render real footer lines (src/render.ts) for a set of states → design/preview.html.
-// Colors approximate pi's built-in dark theme. Run: bun design/preview.ts && python3 design/png.py
+// Render real footer lines (src/render.ts + src/skin.ts) with pi's built-in dark theme → design/preview.html.
+// Run: bun design/preview.ts && python3 design/png.py
 import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { layout, type Seg, type View } from "../src/render.ts";
+import { tokenFor } from "../src/skin.ts";
 
-const COLORS: Record<string, string> = {
-	text: "#dcdde3",
-	muted: "#9c9fb3",
-	dim: "#7e8197",
-	faint: "#43465a",
-	warning: "#e2c35a",
-	error: "#ec8a76",
+// Needs `bun run link-pi` first.
+const piDir = new URL("../node_modules/@earendil-works/pi-coding-agent/dist", import.meta.url).pathname;
+const themeDir = join(piDir, "modes/interactive/theme");
+const { loadThemeFromPath } = await import(join(themeDir, "theme.js"));
+const theme = loadThemeFromPath(join(themeDir, "dark.json"), "truecolor");
+
+const hex = (token: string) => {
+	const m = /38;2;(\d+);(\d+);(\d+)/.exec(theme.fg(token, "x"));
+	return m ? `rgb(${m[1]},${m[2]},${m[3]})` : "#dcdde3";
 };
-const BORDER = "#489287";
 
 const base: View = {
 	path: "pi-things/pi-footer",
@@ -30,36 +33,30 @@ const base: View = {
 };
 const states: [string, Partial<View>][] = [
 	["idle", {}],
-	["running", { phase: "running", elapsedMs: 83_000, ctxPercent: 41, cost: 0.46, delta: 0.04, dirty: true }],
-	["with statuses", { ctxPercent: 41, cost: 0.46, dirty: true, statuses: ["mcp 3", "lsp ok"] }],
-	["tight", { ctxPercent: 78, turnsLeft: 4, cost: 1.2, dirty: true }],
-	["danger", { ctxPercent: 93, turnsLeft: 1, cost: 1.38, dirty: true }],
+	["running", { phase: "running", elapsedMs: 83_000, ctxPercent: 41, cost: 0.46, delta: 0.04, dirty: true, statuses: ["mcp 3"], thinking: "high" }],
+	["tight", { ctxPercent: 78, turnsLeft: 4, cost: 1.2, dirty: true, thinking: "low" }],
+	["danger", { ctxPercent: 93, turnsLeft: 1, cost: 1.38, dirty: true, thinking: "xhigh" }],
 	["compacting", { phase: "compacting", ctxPercent: 93, cost: 1.38 }],
-	["virtual model", { model: "auto", routed: "Opus 4.6", thinking: "high", ctxPercent: 22, cost: 0.31 }],
-	["subscription", { sub: true, ctxPercent: 22 }],
+	["virtual model", { model: "auto", routed: "Opus 4.6", thinking: "max", ctxPercent: 22, cost: 0.31 }],
+	["subscription", { sub: true, ctxPercent: 22, thinking: "minimal" }],
 ];
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-const span = (s: Seg) => `<span style="color:${COLORS[s.tone ?? "muted"]}">${esc(s.text)}</span>`;
+const span = (s: Seg) => `<span style="color:${hex(tokenFor(s) ?? "text")}">${esc(s.text)}</span>`;
 const measure = (s: string) => [...s].length;
+const line = (o: Partial<View>, w: number) => `<pre>${layout({ ...base, ...o }, w, measure).map(span).join("")}</pre>`;
 
-const term = (width: number, rows: [string, Partial<View>][]) =>
-	`<div class="term"><pre style="color:${BORDER}">${"─".repeat(width)}</pre>` +
-	rows.map(([name, o]) => `<div class="tag">${name}</div><pre>${layout({ ...base, ...o }, width, measure).map(span).join("")}</pre>`).join("") +
-	"</div>";
-
-const widths = [120, 90, 64, 48, 32].map((w) => [`${w} cols`, w] as const);
 const html = `<html><head><meta charset="utf-8"><style>
 body{background:#0e0f13;color:#ccc;font:14px sans-serif;padding:16px;margin:0;width:max-content}
-h2{font-size:14px;color:#c39be6;margin:18px 0 6px;font-weight:600}
+h2{font-size:14px;color:${hex("accent")};margin:18px 0 6px;font-weight:600}
 .term{background:#1b1c22;padding:10px 0 12px;border-radius:8px}
 pre{margin:0;font:14px/1.5 'JetBrains Mono','DejaVu Sans Mono',monospace;white-space:pre}
 .tag{font:11px sans-serif;color:#50546a;margin:8px 0 1px 9px}
 </style></head><body>
-<h2>States · 120 cols</h2>${term(120, states)}
-<h2>Widths · running</h2><div class="term">${widths
-	.map(([n, w]) => `<div class="tag">${n}</div><pre>${layout({ ...base, ...states[1][1], statuses: ["mcp 3"] }, w, measure).map(span).join("")}</pre>`)
-	.join("")}</div>
+<h2>States · 120 cols</h2><div class="term"><pre style="color:${hex("border")}">${"─".repeat(120)}</pre>
+${states.map(([n, o]) => `<div class="tag">${n}</div>${line(o, 120)}`).join("")}</div>
+<h2>Widths · running</h2><div class="term">
+${[120, 90, 64, 48, 32].map((w) => `<div class="tag">${w} cols</div>${line(states[1][1], w)}`).join("")}</div>
 </body></html>`;
 writeFileSync(new URL("./preview.html", import.meta.url), html);
 console.log("design/preview.html");

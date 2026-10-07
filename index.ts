@@ -6,10 +6,7 @@ import type { Api, Model } from "@earendil-works/pi-ai";
 import type { ContextUsage, ExtensionAPI, ExtensionContext, ReadonlyFooterDataProvider } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { layout, shortModel, type View } from "./src/render.ts";
-import { DEFAULT_SKIN, SKINS, type SkinName, tokenFor } from "./src/skin.ts";
-
-/** Undocumented on purpose: lets us compare skins live. Not a setting. */
-const skin = SKINS[(process.env.PI_RUNWAY_SKIN as SkinName) in SKINS ? (process.env.PI_RUNWAY_SKIN as SkinName) : DEFAULT_SKIN];
+import { tokenFor } from "./src/skin.ts";
 import { displayPath, latestResponse, type MessageLike, runEnds, sanitize, totalCost, turnsLeft } from "./src/state.ts";
 
 const VIRTUAL_API = "pi-virtual";
@@ -166,10 +163,10 @@ export default function runway(pi: ExtensionAPI) {
 					requestRender = () => {};
 				},
 				render(width: number): string[] {
-					const faintDistinct = theme.fg(tokenFor({ text: "", role: "track" }, skin) ?? "dim", "x") !== theme.fg(tokenFor({ text: "", role: "fill" }, skin) ?? "dim", "x");
+					const faintDistinct = theme.fg("scrollbarTrack", "x") !== theme.fg("success", "x");
 					const line = layout(view(), width, visibleWidth, { faintDistinct })
 						.map((s) => {
-							const token = tokenFor(s, skin);
+							const token = tokenFor(s);
 							return token ? theme.fg(token, s.text) : s.text;
 						})
 						.join("");

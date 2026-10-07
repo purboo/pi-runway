@@ -11,12 +11,8 @@ export type Token =
 	| "success"
 	| "warning"
 	| "error"
-	| "border"
-	| "borderAccent"
-	| "borderMuted"
 	| "mdLink"
 	| "syntaxString"
-	| "syntaxKeyword"
 	| "scrollbarTrack"
 	| "thinkingOff"
 	| "thinkingMinimal"
@@ -26,7 +22,24 @@ export type Token =
 	| "thinkingXhigh"
 	| "thinkingMax";
 
-export type Skin = Record<Role, Token | "thinking">;
+/** `thinking` = the color pi gives the editor border for that thinking level. */
+export const SKIN: Record<Role, Token | "thinking"> = {
+	path: "text",
+	branch: "accent",
+	dirty: "warning",
+	status: "dim",
+	elapsed: "mdLink",
+	model: "text",
+	via: "dim",
+	thinking: "thinking",
+	fill: "success",
+	track: "scrollbarTrack",
+	pct: "success",
+	note: "muted",
+	cost: "syntaxString",
+	delta: "dim",
+	sep: "scrollbarTrack",
+};
 
 const THINKING: Record<string, Token> = {
 	off: "thinkingOff",
@@ -38,71 +51,10 @@ const THINKING: Record<string, Token> = {
 	max: "thinkingMax",
 };
 
-export const SKINS = {
-	/** v2: grays only, the model is the single bright anchor. */
-	quiet: {
-		path: "muted",
-		branch: "dim",
-		dirty: "warning",
-		status: "dim",
-		elapsed: "muted",
-		model: "text",
-		via: "dim",
-		thinking: "dim",
-		fill: "muted",
-		track: "scrollbarTrack",
-		pct: "muted",
-		turns: "muted",
-		cost: "muted",
-		delta: "dim",
-		sep: "scrollbarTrack",
-	},
-	/** Every element gets its natural color; thinking level uses the same color pi gives the editor border. */
-	vivid: {
-		path: "text",
-		branch: "accent",
-		dirty: "warning",
-		status: "dim",
-		elapsed: "mdLink",
-		model: "text",
-		via: "dim",
-		thinking: "thinking",
-		fill: "success",
-		track: "scrollbarTrack",
-		pct: "success",
-		turns: "muted",
-		cost: "syntaxString",
-		delta: "dim",
-		sep: "scrollbarTrack",
-	},
-	/** Gray base, accent on the two things you scan for: who is working, and how much room is left. */
-	accent: {
-		path: "text",
-		branch: "muted",
-		dirty: "warning",
-		status: "dim",
-		elapsed: "muted",
-		model: "accent",
-		via: "dim",
-		thinking: "thinking",
-		fill: "accent",
-		track: "scrollbarTrack",
-		pct: "text",
-		turns: "muted",
-		cost: "muted",
-		delta: "dim",
-		sep: "scrollbarTrack",
-	},
-} satisfies Record<string, Skin>;
-
-export type SkinName = keyof typeof SKINS;
-export const DEFAULT_SKIN: SkinName = "vivid";
-
-/** Theme token for a segment, or undefined for text that passes through unstyled. */
-export function tokenFor(seg: Seg, skin: Skin): Token | undefined {
+/** Theme token for a segment, or undefined for text that passes through unstyled. Alerts win over roles. */
+export function tokenFor(seg: Seg): Token | undefined {
 	if (seg.alert) return seg.alert;
 	if (!seg.role) return undefined;
-	const t = skin[seg.role];
-	if (t === "thinking") return THINKING[seg.text.trim()] ?? "dim";
-	return t;
+	const t = SKIN[seg.role];
+	return t === "thinking" ? (THINKING[seg.text] ?? "dim") : t;
 }

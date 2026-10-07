@@ -1,11 +1,11 @@
 /**
- * Live skin comparison inside a real pi, using your actual theme.
+ * Every footer state inside a real pi, drawn with your actual theme.
  *   pi -ne --no-session -e ./design/demo.ts
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { layout, type View } from "../src/render.ts";
-import { SKINS, tokenFor } from "../src/skin.ts";
+import { tokenFor } from "../src/skin.ts";
 
 const base: View = {
 	path: "pi-things/pi-footer",
@@ -22,11 +22,14 @@ const base: View = {
 	phase: "idle",
 	elapsedMs: 0,
 };
-const states: Partial<View>[] = [
-	{},
-	{ phase: "running", elapsedMs: 83_000, ctxPercent: 41, cost: 0.46, delta: 0.04, dirty: true, statuses: ["mcp 3"], thinking: "high" },
-	{ ctxPercent: 78, turnsLeft: 4, cost: 1.2, dirty: true, thinking: "low" },
-	{ ctxPercent: 93, turnsLeft: 1, cost: 1.38, dirty: true, model: "auto", routed: "Opus 4.6", thinking: "xhigh" },
+const states: [string, Partial<View>][] = [
+	["idle", {}],
+	["running", { phase: "running", elapsedMs: 83_000, ctxPercent: 41, cost: 0.46, delta: 0.04, dirty: true, statuses: ["mcp 3"], thinking: "high" }],
+	["tight", { ctxPercent: 78, turnsLeft: 4, cost: 1.2, dirty: true, thinking: "low" }],
+	["danger", { ctxPercent: 93, turnsLeft: 1, cost: 1.38, dirty: true, thinking: "xhigh" }],
+	["compacting", { phase: "compacting", ctxPercent: 93, cost: 1.38 }],
+	["virtual model", { model: "auto", routed: "Opus 4.6", thinking: "max", ctxPercent: 22, cost: 0.31 }],
+	["subscription", { sub: true, ctxPercent: 22, thinking: "minimal" }],
 ];
 
 export default function (pi: ExtensionAPI) {
@@ -35,17 +38,14 @@ export default function (pi: ExtensionAPI) {
 			invalidate() {},
 			render(width: number) {
 				const out: string[] = [];
-				for (const [name, skin] of Object.entries(SKINS)) {
-					out.push("", theme.fg("accent", ` ${name}`));
-					for (const s of states) {
-						const line = layout({ ...base, ...s }, width, visibleWidth, { faintDistinct: true })
-							.map((seg) => {
-								const t = tokenFor(seg, skin);
-								return t ? theme.fg(t, seg.text) : seg.text;
-							})
-							.join("");
-						out.push(truncateToWidth(line, width));
-					}
+				for (const [name, s] of states) {
+					const line = layout({ ...base, ...s }, width, visibleWidth, { faintDistinct: true })
+						.map((seg) => {
+							const t = tokenFor(seg);
+							return t ? theme.fg(t, seg.text) : seg.text;
+						})
+						.join("");
+					out.push(theme.fg("dim", ` ${name}`), truncateToWidth(line, width));
 				}
 				return out;
 			},
