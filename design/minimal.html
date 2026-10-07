@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>pi-runway · 减法</title>
+<style>
+:root{--bg:#18191e;--page:#0f1014;--ink:#c9ccd3;--sub:#7e888e;--hl:#a798d7;--mono:'JetBrains Mono','Iosevka','DejaVu Sans Mono',ui-monospace,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.65 -apple-system,'Inter','Noto Sans CJK SC',sans-serif;padding:28px 32px 60px;width:max-content;min-width:1280px}
+h1{font-size:22px;margin:0 0 6px;color:#e6e7ea;font-weight:650}
+h2{font-size:15px;color:var(--hl);margin:34px 0 6px;font-weight:600}
+h3{font-size:13px;color:#e1e3e7;margin:0 0 6px;font-weight:600}
+p.note{margin:4px 0 10px;color:#8a9097;font-size:13px;max-width:1040px}
+.term{background:var(--bg);border-radius:10px;padding:12px 0;display:inline-block;box-shadow:0 0 0 1px #24262d inset}
+.ln{font:14px/1.5 var(--mono);white-space:pre;height:1.5em;padding:0 14px;display:flex;align-items:center}
+.ln>span{white-space:pre;flex:none}
+.c{flex:none;width:1ch;height:1.02em}
+.g{position:relative;flex:none;width:1ch;height:100%}
+.g::before{content:"";position:absolute}
+.h::before{left:0;right:0;top:calc(50% - .5px);height:1px;background:var(--k)}
+.H::before{left:0;right:0;top:calc(50% - 1.25px);height:2.5px;background:var(--k)}
+.D::before{left:10%;right:30%;top:calc(50% - 1.25px);height:2.5px;background:var(--k)}
+.v::before{top:0;bottom:0;left:calc(50% - .5px);width:1px;background:var(--k)}
+.tl::before{left:calc(50% - .5px);top:calc(50% - .5px);right:0;bottom:0;border-left:1px solid var(--k);border-top:1px solid var(--k);border-top-left-radius:7px}
+.tr::before{left:0;top:calc(50% - .5px);right:calc(50% - .5px);bottom:0;border-right:1px solid var(--k);border-top:1px solid var(--k);border-top-right-radius:7px}
+.bl::before{left:calc(50% - .5px);top:0;right:0;bottom:calc(50% - .5px);border-left:1px solid var(--k);border-bottom:1px solid var(--k);border-bottom-left-radius:7px}
+.br::before{left:0;top:0;right:calc(50% - .5px);bottom:calc(50% - .5px);border-right:1px solid var(--k);border-bottom:1px solid var(--k);border-bottom-right-radius:7px}
+.tag{font:11px/1.3 sans-serif;color:#565b66;margin:10px 0 2px 14px;letter-spacing:.3px}
+.tag:first-child{margin-top:0}
+.cols{display:grid;grid-template-columns:repeat(3,max-content);gap:18px}
+.col h3 small{display:block;font-weight:400;color:#7e848c;font-size:12px;margin-top:2px;max-width:560px}
+.ctrl{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;margin:10px 0 12px;font-size:13px;color:#a3a9b0}
+.ctrl label{display:flex;gap:6px;align-items:center}
+.ctrl input[type=range]{width:160px;accent-color:#a798d7}
+.ctrl select{background:#23252c;color:#dfe1e5;border:1px solid #33363f;border-radius:5px;padding:2px 6px}
+.ctrl b{color:#e1e3e7;font-weight:600;font-variant-numeric:tabular-nums;min-width:34px;display:inline-block}
+.prin{display:grid;grid-template-columns:repeat(3,330px);gap:14px}
+.prin div{background:#17181d;border:1px solid #24262d;border-radius:10px;padding:12px 14px;font-size:13px;color:#a9aeb5}
+.prin b{display:block;color:#e1e3e7;margin-bottom:4px;font-size:13.5px}
+.prin i{font-style:normal;color:#7e848c;font-size:12px;display:block;margin-top:6px}
+</style>
+
+<style>
+.pair{display:grid;grid-template-columns:max-content;gap:4px}
+ul.cut{margin:6px 0 0 18px;padding:0;max-width:1060px;color:#a9aeb5;font-size:13px}
+ul.cut li{margin:4px 0}
+ul.cut b{color:#e1e3e7}
+ul.cut s{color:#6b7078}
+</style>
+</head>
+<body>
+<h1>pi-runway · 减法</h1>
+<p class="note">同一时刻，上面是上一版，下面是减法之后。规则只有一条：<b>能从别处读到的、平时不变的、不影响你下一步决定的，都不显示。</b></p>
+<div class="term" id="before"></div>
+
+<h2>① 删掉了什么</h2>
+<ul class="cut">
+  <li><s>thinking 等级的文字</s>：边框颜色本来就是 pi 按 thinking 等级上的色，文字是重复的。</li>
+  <li><s>完整路径</s> → 只留目录名。<s>main / master</s>：在默认分支上就不显示分支，只有在别的分支上才出现；有未提交改动时目录名后面加一个黄色的 <code>*</code>。</li>
+  <li><s>总计时</s>：运行中不再一直跳秒。某一步卡住时才显示这一步用了多久；跑完显示一次总时长。</li>
+  <li><s>百分比数字</s>和<s>下一轮虚影</s>：70% 以下只有跑道这条线，线的长度已经说明了一切；70% 起才出现数字和剩余轮数。</li>
+  <li><s>所有分隔点 ·</s>：分组之间就是边框线本身，组内用空格。</li>
+  <li><s>needs you</s> 这类标签：直接显示问题本身，黄色实心点已经说明“轮到你了”。</li>
+</ul>
+
+<h2>② 减法之后 · 一次运行的经过 · 100 列</h2>
+<div class="term" id="after"></div>
+
+<h2>③ 窄终端</h2>
+<div class="term" id="widths"></div>
+
+<script src="term.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const SP=T("⠹ ",C.accent);
+
+// ── top border: groups on the left separated by the border line itself, model on the right ──
+function topLine(W,bc,groups,right){
+  const L=[];groups.filter(g=>g&&g.length).forEach((g,i)=>{if(i)L.push(T(" ── ",bc));L.push(...g);});
+  const run=W-8-width(L)-width(right);
+  if(run<3)return null;
+  return[T("╭─ ",bc),...L,T(" "+"─".repeat(run)+" ",bc),...right,T(" ─╮",bc)];
+}
+function where(st,lv){
+  const g=[T(st.folder,C.text)];
+  if(st.branch&&lv<2)g.push(T("  "),T(st.branch,C.muted));
+  if(st.dirty)g.push(T("*",C.warning));
+  if(st.ext&&lv<1)g.push(T("  "),T(st.ext,C.dim));
+  return g;
+}
+function activity(st,lv){
+  const a=st.act;if(!a)return null;
+  if(a.k==="busy")return[SP,T(a.verb,C.muted),...(a.obj&&lv<3?[T("  "),T(a.obj,C.dim)]:[]),...(a.stall?[T("  "),T(a.stall,C.warning)]:[])];
+  if(a.k==="you")return[T("● ",C.warning),T(a.text,C.warning)];
+  if(a.k==="done")return[T("✓ ",C.success),T(a.text,C.dim)];
+  if(a.k==="err")return[T("✗ ",C.error),T(a.text,C.error)];
+}
+function topRow(st,W){
+  const bc=THINK[st.think];
+  for(let lv=0;lv<6;lv++){
+    const r=topLine(W,bc,[lv<4?where(st,lv):null,activity(st,lv)],lv<5?[T(st.model,C.text)]:[]);
+    if(r)return r;
+  }
+  return[T("╭"+"─".repeat(W-2)+"╮",bc)];
+}
+// ── bottom border: the runway, then (only when it matters) % and turns, then cost ──
+function bottomRow(st,W,frame=0){
+  const bc=THINK[st.think], a=alertOf(st.pct), col=a?C[a]:C.muted;
+  const R=[];
+  if(a&&!st.compacting){const t=Math.floor((100-st.pct)/st.next);R.push(T(`${Math.round(st.pct)}%`,col),...(W>=60?[T(`  ≈${t} turn${t===1?"":"s"}`,col)]:[]),T("  "));}
+  if(st.cost>=.005)R.push(T(`$${st.cost.toFixed(2)}`,C.muted));
+  if(R.length&&R.at(-1).t==="  ")R.pop();
+  const n=W-2-(R.length?width(R)+3:1);
+  const segs=[T("╰",bc)], used=Math.max(1,Math.round(st.pct/100*n)), ghost=a?Math.min(n,Math.round((st.pct+st.next)/100*n)):used;
+  for(let i=0;i<n;i++){const c=heat((i+.5)/n);
+    if(i<used)segs.push(T("━",st.compacting?mix(mix(c,C.bg,.5),"#ffffff",Math.abs(i-frame)<2?.4:0):c));
+    else if(i<ghost)segs.push(T("╍",mix(c,C.bg,.45)));
+    else segs.push(T("─",bc));}
+  return R.length?[...segs,T(" "),...R,T(" ─╯",bc)]:[...segs,T("╯",bc)];
+}
+const editor=(W,bc)=>sides(W,bc,[T(" ",C.text),{cell:1,c:"#c9ccd3",solid:1}]);
+const box=(st,W,f)=>[topRow(st,W),editor(W,THINK[st.think]),bottomRow(st,W,f)];
+
+const B={folder:"pi-footer",branch:null,dirty:false,ext:null,model:"Sonnet 4.5",think:"high",pct:12,next:5,cost:.08,act:null};
+const STEPS=[
+  ["空闲 · 默认分支 · 没有改动",{}],
+  ["空闲 · 在功能分支上，有未提交改动，装了别的扩展",{branch:"feat/runway",dirty:true,ext:"mcp 3",pct:24,cost:.21}],
+  ["思考中",{act:{k:"busy",verb:"thinking"},pct:31,cost:.29}],
+  ["跑工具",{act:{k:"busy",verb:"bash",obj:"bun test"},dirty:true,pct:38,cost:.36}],
+  ["某一步卡了 47 秒",{act:{k:"busy",verb:"bash",obj:"bun run build",stall:"47s"},dirty:true,pct:44,cost:.41}],
+  ["扩展在等你回答",{act:{k:"you",text:"Delete 3 files?"},dirty:true,pct:52,cost:.55}],
+  ["context 到 78%：数字和剩余轮数这时才出现",{act:{k:"busy",verb:"writing"},dirty:true,pct:78,next:5.5,cost:1.2}],
+  ["93%",{act:{k:"busy",verb:"edit",obj:"src/render.ts"},dirty:true,pct:93,next:5,cost:1.38}],
+  ["压缩中",{act:{k:"busy",verb:"compacting"},compacting:true,dirty:true,pct:93,next:5,cost:1.38}],
+  ["跑完了：留到你开始输入",{act:{k:"done",text:"3m02s"},dirty:true,pct:21,cost:1.41}],
+  ["出错：留到下一次提问",{act:{k:"err",text:"429 rate limited"},dirty:true,pct:21,cost:1.41}],
+];
+const W=100;
+$("after").innerHTML=STEPS.map(([n,o])=>`<div class="tag">${n}</div>`+box({...B,...o},W,8).map(r=>html(r,W)).join("")).join("");
+
+// ── the previous version, same moment, for contrast ──
+{
+  const bc=THINK.high, s=[T("  ·  ",C.track)];
+  const t=[T("╭─ ",bc),T("pi-things/pi-footer",C.text),T("  "),T("main",C.muted),T("*",C.warning),T("  ·  ",C.track),T("mcp 3",C.dim),T(" ── ",bc),SP,T("bash  ",C.muted),T("bun test",C.dim),...s,T("0:41",C.dim)];
+  const r=[T("Sonnet 4.5",C.text),T(" "),T("high",C.dim),T(" ─╮",bc)];
+  const top0=[...t,T(" "+"─".repeat(W-width(t)-width(r)-2)+" ",bc),...r];
+  const R=[T("$0.46",C.muted),T(" +0.04",C.dim),...s,T("41%",C.muted)];
+  const n=W-2-width(R)-3, seg=[T("╰",bc)];
+  for(let i=0;i<n;i++){const c=heat((i+.5)/n);seg.push(i<Math.round(.41*n)?T("━",c):i<Math.round(.455*n)?T("╍",mix(c,C.bg,.45)):T("─",bc));}
+  const st={...B,...STEPS[3][1]};
+  $("before").innerHTML=`<div class="tag">上一版</div>`+[top0,editor(W,bc),[...seg,T(" "),...R,T(" ─╯",bc)]].map(x=>html(x,W)).join("")+
+    `<div class="tag">减法之后</div>`+box(st,W,0).map(x=>html(x,W)).join("");
+}
+$("widths").innerHTML=[140,80,60,44].map(w=>`<div class="tag">${w} 列</div>`+box({...B,...STEPS[6][1],branch:"feat/runway"},w,0).map(r=>html(r,w)).join("")).join("");
+</script>
+</body>
+</html>
