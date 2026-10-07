@@ -32,8 +32,6 @@ const MIN_FRAMED_WIDTH = 16;
 const LIGHT_MS_PER_COL = 30;
 const LIGHT_TAIL = 22;
 const FRAME_MS = 60;
-/** How long the thinking level name stays next to ◆ after it changes. */
-const THINKING_FLASH_MS = 2000;
 
 const THINKING_TOKEN: Record<string, ThemeColor> = {
 	off: "thinkingOff",
@@ -68,10 +66,8 @@ export default function runway(pi: ExtensionAPI) {
 	let failed = false;
 	let prompts = 0;
 	let compacting = false;
-	let thinkingUntil = 0;
 	let animStart = 0;
 	let anim: ReturnType<typeof setInterval> | undefined;
-	let flashTimer: ReturnType<typeof setTimeout> | undefined;
 
 	// Git: root once per session/branch change, dirty after anything that may touch files.
 	let gitRoot: string | undefined;
@@ -160,8 +156,7 @@ export default function runway(pi: ExtensionAPI) {
 		if (anim) clearInterval(anim);
 		if (gitTimer) clearTimeout(gitTimer);
 		if (refreshTimer) clearTimeout(refreshTimer);
-		if (flashTimer) clearTimeout(flashTimer);
-		anim = gitTimer = refreshTimer = flashTimer = undefined;
+		anim = gitTimer = refreshTimer = undefined;
 	}
 
 	function isSubscription(provider: string | undefined): boolean {
@@ -198,7 +193,8 @@ export default function runway(pi: ExtensionAPI) {
 			model: displayName(routedModel ?? model),
 			provider: multiProvider ? provider : undefined,
 			routed: !!routedModel,
-			thinking: Date.now() < thinkingUntil ? pi.getThinkingLevel() : undefined,
+			// Only for models that can think; others have no level worth naming.
+			thinking: model?.reasoning ? pi.getThinkingLevel() : undefined,
 			state: prompts > 0 ? "you" : runState,
 			hint: interrupt ? `${interrupt} to interrupt` : undefined,
 			pct,
@@ -408,12 +404,6 @@ export default function runway(pi: ExtensionAPI) {
 
 	pi.on("thinking_level_select", (_e, c) => {
 		ctx = c;
-		thinkingUntil = Date.now() + THINKING_FLASH_MS;
-		if (flashTimer) clearTimeout(flashTimer);
-		flashTimer = setTimeout(() => {
-			flashTimer = undefined;
-			requestRender();
-		}, THINKING_FLASH_MS + 20);
 		refreshSoon();
 	});
 

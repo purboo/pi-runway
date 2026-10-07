@@ -20,7 +20,7 @@ export interface View {
 	provider?: string;
 	/** A virtual model is routing; `model` is the routed one. */
 	routed?: boolean;
-	/** Thinking level name, shown briefly after it changes. */
+	/** Thinking level name, for models that can think. */
 	thinking?: string;
 	state: RunState;
 	/** "esc to interrupt" while running. */
@@ -72,7 +72,7 @@ export function shortModel(name: string): string {
 }
 
 // ── top border ──────────────────────────────────────────────────────────────
-// ╭─ pi-footer/src  ⎇ feat/x*  mcp 3 ───────── esc to interrupt ── ◆ Sonnet 4.5 ─╮
+// ╭─ pi-footer/src  ⎇ feat/x*  mcp 3 ───────── esc to interrupt ── ◆ Sonnet 4.5 high ─╮
 // Degrades one step at a time; the run-state mark (● / ✗) is never dropped.
 
 function left(v: View, lv: number): Seg[] {
