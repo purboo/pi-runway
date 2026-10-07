@@ -4,6 +4,15 @@
   "description": "One line. Zero config. Silent until it matters — then it tells you how many turns you have left.",
   "type": "module",
   "license": "MIT",
+  "author": "purboo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/purboo/pi-runway.git"
+  },
+  "homepage": "https://github.com/purboo/pi-runway#readme",
+  "bugs": {
+    "url": "https://github.com/purboo/pi-runway/issues"
+  },
   "keywords": [
     "pi-package",
     "pi-extension",
@@ -17,7 +26,8 @@
   "pi": {
     "extensions": [
       "./index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/purboo/pi-runway/main/design/preview.png"
   },
   "scripts": {
     "test": "bun test",
