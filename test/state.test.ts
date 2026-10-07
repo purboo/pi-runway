@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { displayPath, type EntryLike, latestResponse, runEnds, sanitize, totalCost, turnsLeft } from "../src/state.ts";
+import { displayPath, type EntryLike, latestResponse, runEnds, runGrowth, sanitize, totalCost, turnsLeft } from "../src/state.ts";
 
 const usage = (tokens: number, cost = 0) => ({ input: tokens, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: tokens, cost: { total: cost } });
 const user = (): EntryLike => ({ type: "message", message: { role: "user" } });
@@ -45,11 +45,17 @@ test("latestResponse ignores aborted", () => {
 	expect(latestResponse(b)?.model).toBe("a");
 });
 
-test("displayPath", () => {
-	expect(displayPath("/h/u/p/pi-footer", "/h/u/p/pi-footer", "/h/u")).toEqual({ path: "pi-footer", base: "pi-footer" });
-	expect(displayPath("/h/u/p/pi-footer/src/x", "/h/u/p/pi-footer", "/h/u")).toEqual({ path: "pi-footer/src/x", base: "x" });
-	expect(displayPath("/h/u/projects/scratch", undefined, "/h/u")).toEqual({ path: "projects/scratch", base: "scratch" });
-	expect(displayPath("/h/u", undefined, "/h/u")).toEqual({ path: "~", base: "~" });
+test("displayPath: the shortest name that says which project", () => {
+	expect(displayPath("/h/u/p/pi-footer", "/h/u/p/pi-footer", "/h/u")).toEqual({ path: "pi-footer", repo: "pi-footer" });
+	expect(displayPath("/h/u/p/pi-footer/src/x", "/h/u/p/pi-footer", "/h/u")).toEqual({ path: "pi-footer/src/x", repo: "pi-footer" });
+	expect(displayPath("/h/u/projects/scratch", undefined, "/h/u")).toEqual({ path: "scratch", repo: "scratch" });
+	expect(displayPath("/h/u", undefined, "/h/u")).toEqual({ path: "~", repo: "~" });
+});
+
+test("runGrowth", () => {
+	expect(runGrowth([100, 200])).toBeUndefined();
+	expect(runGrowth([100, 200, 300])).toBe(100);
+	expect(runGrowth([300, 200, 100])).toBeUndefined();
 });
 
 test("sanitize", () => {

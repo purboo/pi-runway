@@ -11,6 +11,8 @@ raw = subprocess.run(["tmux", "capture-pane", "-t", target, "-p", "-e"], capture
 lines = raw.rstrip("\n").split("\n")
 if last:
     lines = lines[-last:]
+while lines and not re.sub(r"\x1b\[[0-9;:]*m", "", lines[-1]).strip():
+    lines.pop()
 
 BASE16 = ["#1d1f21", "#cc6666", "#b5bd68", "#f0c674", "#81a2be", "#b294bb", "#8abeb7", "#c5c8c6",
           "#666666", "#d54e53", "#b9ca4a", "#e7c547", "#7aa6da", "#c397d8", "#70c0b1", "#eaeaea"]
@@ -27,8 +29,14 @@ def xterm(n):
 
 FG, BG = "#c5c8c6", "#16171d"
 
+# tmux only emits SGR changes, so attributes carry over from one line to the next.
+st = {"fg": None, "bg": None, "dim": False, "bold": False, "inv": False}
+
+def narrow(text):
+    # Symbols outside box drawing may come from a fallback font with another advance: pin them to 1ch.
+    return "".join(f'<span style="display:inline-block;width:1ch">{html.escape(ch)}</span>' if 0x2190 <= ord(ch) <= 0x2bff and not 0x2500 <= ord(ch) <= 0x259f else html.escape(ch) for ch in text)
+
 def convert(line):
-    st = {"fg": None, "bg": None, "dim": False, "bold": False, "inv": False}
     out, pos = [], 0
     for m in re.finditer(r"\x1b\[([0-9;:]*)m|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)", line):
         out.append((line[pos:m.start()], dict(st)))
@@ -66,7 +74,7 @@ def convert(line):
         if s["inv"]:
             fg, bg = bg or BG, fg
         style = f"color:{fg};" + (f"background:{bg};" if bg else "") + ("opacity:.55;" if s["dim"] else "") + ("font-weight:bold;" if s["bold"] else "")
-        res.append(f'<span style="{style}">{html.escape(text)}</span>')
+        res.append(f'<span style="{style}">{narrow(text)}</span>')
     return "".join(res)
 
 body = "\n".join(convert(l) for l in lines)
