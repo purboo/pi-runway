@@ -53,6 +53,9 @@ export default function runway(pi: ExtensionAPI) {
 	let ctx: ExtensionContext | undefined;
 	let footer: ReadonlyFooterDataProvider | undefined;
 	let requestRender = () => {};
+	/** Toggled with /runway; kept across sessions for the life of the process. */
+	let enabled = true;
+	let editorFactory: Parameters<ExtensionContext["ui"]["setEditorComponent"]>[0];
 
 	// Session-derived state, refreshed on events — never by scanning in render().
 	let usage: ContextUsage | undefined;
@@ -96,7 +99,7 @@ export default function runway(pi: ExtensionAPI) {
 
 	/** Entries land after message_end handlers; coalesce bursts into one refresh. */
 	function refreshSoon() {
-		refreshTimer ??= setTimeout(refresh, 0);
+		if (enabled) refreshTimer ??= setTimeout(refresh, 0);
 	}
 
 	async function refreshGit() {
@@ -134,11 +137,12 @@ export default function runway(pi: ExtensionAPI) {
 
 	function scheduleGit(delayMs: number) {
 		if (gitTimer) clearTimeout(gitTimer);
+		if (!enabled) return;
 		gitTimer = setTimeout(() => void refreshGit(), delayMs);
 	}
 
 	function animating(): boolean {
-		return runState === "run" || compacting;
+		return enabled && (runState === "run" || compacting);
 	}
 
 	function syncAnimation() {
@@ -301,7 +305,7 @@ export default function runway(pi: ExtensionAPI) {
 	}
 
 	function install(c: ExtensionContext) {
-		if (c.mode !== "tui") return;
+		if (c.mode !== "tui" || !enabled) return;
 		c.ui.setWorkingVisible(false);
 		c.ui.setFooter((tui, _theme, footerData) => {
 			footer = footerData;
@@ -323,8 +327,45 @@ export default function runway(pi: ExtensionAPI) {
 			};
 		});
 		const Editor = makeEditor(() => c.ui.theme);
-		c.ui.setEditorComponent((tui, theme, keybindings) => new Editor(tui, theme, keybindings));
+		editorFactory = (tui, theme, keybindings) => new Editor(tui, theme, keybindings);
+		c.ui.setEditorComponent(editorFactory);
 	}
+
+	/** Hand the footer, editor and working row back to pi. */
+	function uninstall(c: ExtensionContext) {
+		if (c.mode !== "tui") return;
+		c.ui.setFooter(undefined);
+		// Leave another extension's editor alone.
+		if (editorFactory && c.ui.getEditorComponent() === editorFactory) c.ui.setEditorComponent(undefined);
+		editorFactory = undefined;
+		c.ui.setWorkingVisible(true);
+	}
+
+	pi.registerCommand("runway", {
+		description: "Toggle the runway frame (on | off)",
+		getArgumentCompletions: (prefix) =>
+			["on", "off"].filter((a) => a.startsWith(prefix.trim())).map((a) => ({ value: a, label: a })),
+		handler: async (args, c) => {
+			const arg = args.trim().toLowerCase();
+			const want = arg === "on" ? true : arg === "off" ? false : !enabled;
+			if (want === enabled) {
+				c.ui.notify(`Runway is already ${enabled ? "on" : "off"}`, "info");
+				return;
+			}
+			enabled = want;
+			ctx = c;
+			if (enabled) {
+				gitRootKnown = false;
+				install(c);
+				refresh();
+				syncAnimation();
+			} else {
+				stopTimers();
+				uninstall(c);
+			}
+			c.ui.notify(enabled ? "Runway on" : "Runway off — pi's footer and editor restored", "info");
+		},
+	});
 
 	pi.on("session_start", (_e, c) => {
 		stopTimers();

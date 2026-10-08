@@ -14,6 +14,8 @@ pi install npm:pi-runway
 
 There is nothing to configure.
 
+To get pi's own footer and editor back for a while, run `/runway` (or `/runway off`, `/runway on`). The choice lasts until pi exits.
+
 ## Reading it
 
 ```
