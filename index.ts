@@ -29,9 +29,11 @@ const GIT_TIMEOUT_MS = 3000;
 /** Below this the editor is drawn unframed, as pi would. */
 const MIN_FRAMED_WIDTH = 16;
 /** Running light: ms per column, and the length of its tail. */
-const LIGHT_MS_PER_COL = 30;
+const LIGHT_MS_PER_COL = 40;
 const LIGHT_TAIL = 22;
-const FRAME_MS = 60;
+/** Each frame redraws all of pi's TUI. 80 ms is the rate of pi's own working spinner, which Runway hides: no more
+ *  redraws than stock pi. With 40 ms per column the light still moves an even 2 columns per frame. */
+const FRAME_MS = 80;
 
 const THINKING_TOKEN: Record<string, ThemeColor> = {
 	off: "thinkingOff",
@@ -235,6 +237,7 @@ export default function runway(pi: ExtensionAPI) {
 			private above = 0;
 			private below = 0;
 			private key = "";
+			private bottomKey = "";
 			private lastTheme: Theme | undefined;
 			private cached: { top: string; bottom: string; side: string } = { top: "", bottom: "", side: "" };
 
@@ -256,7 +259,7 @@ export default function runway(pi: ExtensionAPI) {
 
 			override invalidate(): void {
 				super.invalidate();
-				this.key = "";
+				this.key = this.bottomKey = "";
 			}
 
 			override render(width: number): string[] {
@@ -278,15 +281,19 @@ export default function runway(pi: ExtensionAPI) {
 				v.moreBelow = this.below || undefined;
 				const { look: lk, frame } = look(v, this.getText(), width);
 				const th = theme();
-				const key = `${width}|${frame}|${lk.border}|${lk.diamond}|${JSON.stringify(v)}`;
-				if (key !== this.key || th !== this.lastTheme) {
+				const base = `${width}|${lk.border}|${lk.diamond}|${JSON.stringify(v)}`;
+				// The running light is only on the top border: the bottom is repainted per frame only while compaction sweeps it.
+				const key = `${frame}|${base}`, bottomKey = lk.sweep ? key : base;
+				if (th !== this.lastTheme) this.key = this.bottomKey = "";
+				this.lastTheme = th;
+				if (key !== this.key) {
 					this.key = key;
-					this.lastTheme = th;
-					this.cached = {
-						top: paint(th, top(v, width, visibleWidth), lk),
-						bottom: paint(th, bottom(v, width, visibleWidth), { ...lk, glow: undefined }),
-						side: th.fg(lk.border, "│"),
-					};
+					this.cached.top = paint(th, top(v, width, visibleWidth), lk);
+					this.cached.side = th.fg(lk.border, "│");
+				}
+				if (bottomKey !== this.bottomKey) {
+					this.bottomKey = bottomKey;
+					this.cached.bottom = paint(th, bottom(v, width, visibleWidth), { ...lk, glow: undefined });
 				}
 				const { side } = this.cached;
 				return [
