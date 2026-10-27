@@ -22,7 +22,6 @@ const base: View = {
 	thinking: "high",
 	state: "idle",
 	pct: 41,
-	cost: 1.2,
 };
 
 const frames: [string, View, Partial<Look>][] = [
@@ -32,7 +31,7 @@ const frames: [string, View, Partial<Look>][] = [
 		return d >= 0 && d < 22 ? (1 - d / 22) ** 1.4 * 0.85 : 0;
 	} }],
 	["needs you", { ...base, state: "you", pct: 78, next: 6, turns: 4 }, { border: "warning" }],
-	["failed", { ...base, state: "err", pct: 93, next: 5, turns: 1, cost: 1.38 }, { border: "error" }],
+	["failed", { ...base, state: "err", pct: 93, next: 5, turns: 1 }, { border: "error" }],
 ];
 
 const side = (b: string) => theme.fg(b, "│");

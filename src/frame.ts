@@ -28,13 +28,13 @@ export interface View {
 	/** Editor content hidden above / below the visible lines. */
 	moreAbove?: number;
 	moreBelow?: number;
-	/** Context used, 0–100, or null when unknown (e.g. right after compaction). */
+	/** Context used, 0–100, or null when unknown. */
 	pct: number | null;
+	/** `pct` is an estimate (after a compaction or context edit, until the next response measures it): "~18%". */
+	estimated?: boolean;
 	/** Predicted growth of the next run, in percent of the window. */
 	next?: number;
 	turns?: number;
-	/** Undefined when it should not be shown (subscription, free, unknown). */
-	cost?: number;
 }
 
 export type Tone = "border" | "text" | "muted" | "dim" | "warning" | "error" | "diamond";
@@ -60,10 +60,6 @@ export const DANGER = 90;
 export function alertOf(pct: number | null): "warning" | "error" | undefined {
 	if (pct === null) return undefined;
 	return pct >= DANGER ? "error" : pct >= WARN ? "warning" : undefined;
-}
-
-export function formatCost(cost: number): string {
-	return `$${cost >= 100 ? cost.toFixed(0) : cost.toFixed(2)}`;
 }
 
 /** "Claude Sonnet 4.5" → "Sonnet 4.5". */
@@ -134,16 +130,15 @@ export function top(v: View, width: number, m: Measure): Seg[] {
 }
 
 // ── bottom border: the runway ───────────────────────────────────────────────
-// ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╍╍╍─────────────────── 78%  ≈4 turns  $1.20 ─╯
+// ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╍╍╍────────────────────────── 78%  ≈4 turns ─╯
 
 function labels(v: View, lv: number): Seg[] {
 	const a = alertOf(v.pct);
 	const tone: Tone = a ?? "dim";
 	const parts: Seg[][] = [];
 	if (v.moreBelow && lv < 3) parts.push([s(`↓ ${v.moreBelow} more`, "dim")]);
-	if (v.pct !== null && lv < 4) parts.push([s(`${Math.round(v.pct)}%`, tone)]);
+	if (v.pct !== null && lv < 4) parts.push([s(`${v.estimated ? "~" : ""}${Math.round(v.pct)}%`, tone)]);
 	if (a && v.turns !== undefined && lv < 1) parts.push([s(`≈${v.turns} turn${v.turns === 1 ? "" : "s"}`, tone)]);
-	if (v.cost !== undefined && lv < 2) parts.push([s(formatCost(v.cost), "muted")]);
 	return parts.flatMap((p, i) => (i ? [s("  ", "dim"), ...p] : p));
 }
 

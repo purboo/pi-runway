@@ -9,7 +9,6 @@ export interface UsageLike {
 	cacheRead: number;
 	cacheWrite: number;
 	totalTokens?: number;
-	cost?: { total: number };
 }
 
 export interface MessageLike {
@@ -23,32 +22,21 @@ export interface MessageLike {
 
 export interface EntryLike {
 	type: string;
+	id?: string;
 	usage?: UsageLike;
 	message?: MessageLike;
 }
 
 /** How many recent runs the growth estimate averages over. */
 const WINDOW = 3;
+/** How many recent responses calibrate the context estimate. */
+const SAMPLES = 5;
 
 export function contextTokens(u: UsageLike): number {
 	return u.totalTokens || u.input + u.output + u.cacheRead + u.cacheWrite;
 }
 
 const ok = (m: MessageLike) => m.role === "assistant" && m.stopReason !== "error" && m.stopReason !== "aborted";
-
-/** Total spend across every entry, abandoned branches included (same accounting as pi's footer). */
-export function totalCost(entries: readonly EntryLike[]): number {
-	let cost = 0;
-	for (const e of entries) {
-		if (e.type === "message") {
-			const m = e.message;
-			if (m && (m.role === "assistant" || m.role === "toolResult")) cost += m.usage?.cost?.total ?? 0;
-		} else {
-			cost += e.usage?.cost?.total ?? 0; // usage, compaction, branch_summary
-		}
-	}
-	return cost;
-}
 
 /** Latest successful response on the branch; under a virtual model its model is the routed one. */
 export function latestResponse(branch: readonly EntryLike[]): MessageLike | undefined {
@@ -57,6 +45,40 @@ export function latestResponse(branch: readonly EntryLike[]): MessageLike | unde
 		if (branch[i].type === "message" && m && ok(m)) return m;
 	}
 	return undefined;
+}
+
+const measuredResponse = (e: EntryLike) =>
+	e.type === "message" && !!e.id && !!e.message && ok(e.message) && !!e.message.usage && contextTokens(e.message.usage) > 0;
+
+/**
+ * Whether pi's context figure is measured: it starts from the latest response's usage, unless a compaction or a
+ * context edit came after that response. Then pi reports nothing (compaction) or a characters/4 guess (edit).
+ */
+export function measured(branch: readonly EntryLike[]): boolean {
+	for (let i = branch.length - 1; i >= 0; i--) {
+		const e = branch[i];
+		if (e.type === "compaction" || e.type === "context_edit") return false;
+		if (measuredResponse(e)) return true;
+	}
+	return false;
+}
+
+/**
+ * Real tokens per estimated token: the median, over the latest responses, of each one's measured context against
+ * the estimate of the context it saw (`estimateAt(id)`, with that entry as the leaf). The characters/4 estimate is
+ * about half the real size for some models; the median shrugs off one odd sample.
+ */
+export function calibration(branch: readonly EntryLike[], estimateAt: (id: string) => number): number | undefined {
+	const ratios: number[] = [];
+	for (let i = branch.length - 1; i >= 0 && ratios.length < SAMPLES; i--) {
+		const e = branch[i];
+		if (!measuredResponse(e)) continue;
+		const estimate = estimateAt(e.id!);
+		if (estimate > 0) ratios.push(contextTokens(e.message!.usage!) / estimate);
+	}
+	if (!ratios.length) return undefined;
+	ratios.sort((a, b) => a - b);
+	return ratios[Math.floor(ratios.length / 2)];
 }
 
 /** Context size at the end of each user run since the latest compaction. */

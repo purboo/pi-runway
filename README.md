@@ -14,14 +14,14 @@ pi install npm:pi-runway
 
 There is nothing to configure.
 
-To get pi's own footer and editor back for a while, run `/runway` (or `/runway off`, `/runway on`). The choice lasts until pi exits.
+To get pi's own footer (token counts, cost) and editor back for a while, run `/runway` (or `/runway off`, `/runway on`). The choice lasts until pi exits.
 
 ## Reading it
 
 ```
 ╭─ pi-footer  ⎇ feat/x* ─────────────────────── esc to interrupt ── ◆ Sonnet 4.5 high ─╮
 │ make it pop█                                                                          │
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╍╍╍╍────────── 78%  ≈4 turns  $1.20 ─╯
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╍╍╍╍───────────────── 78%  ≈4 turns ─╯
 ```
 
 **Top edge**
@@ -42,8 +42,8 @@ To get pi's own footer and editor back for a while, run `/runway` (or `/runway o
 | `━━━━━━` | Context used. Cool colors while there's room, warmer as it fills. |
 | `╍╍╍╍` | From 70%: how much the next prompt will probably use. |
 | `78%` | Context used. Dim below 70%, yellow from 70%, red from 90%. |
+| `~18%` | An estimate, right after a compaction or a context edit, until the next response measures the context again. |
 | `≈4 turns` | From 70%: prompts left before the window is full, from how much your last three prompts grew it. |
-| `$1.20` | Session cost, pay-per-token only. Hidden on subscriptions and when there is no price. |
 
 **The frame itself**
 

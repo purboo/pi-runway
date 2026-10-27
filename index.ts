@@ -7,9 +7,10 @@
  *
  * Fast by construction: render() only splices cached strings. Session state is derived on events.
  */
-import type { Api, Model } from "@earendil-works/pi-ai";
+// Namespaces for what older pi versions may lack: a missing named import would stop the extension from loading.
+import * as ai from "@earendil-works/pi-ai";
+import * as host from "@earendil-works/pi-coding-agent";
 import {
-	type ContextUsage,
 	CustomEditor,
 	type ExtensionAPI,
 	type ExtensionContext,
@@ -22,7 +23,17 @@ import {
 import { type EditorTheme, type TUI, type TuiMouseEvent, visibleWidth } from "@earendil-works/pi-tui";
 import { bottom, type RunState, shortModel, top, type View } from "./src/frame.ts";
 import { type Look, paint } from "./src/paint.ts";
-import { displayPath, latestResponse, type MessageLike, runEnds, runGrowth, sanitize, totalCost, turnsLeft } from "./src/state.ts";
+import {
+	calibration,
+	displayPath,
+	latestResponse,
+	measured,
+	type MessageLike,
+	runEnds,
+	runGrowth,
+	sanitize,
+	turnsLeft,
+} from "./src/state.ts";
 
 const VIRTUAL_API = "pi-virtual";
 const GIT_TIMEOUT_MS = 3000;
@@ -51,6 +62,26 @@ function displayName(model: { id: string; name?: string } | undefined): string |
 	return model.name ? shortModel(model.name) : model.id;
 }
 
+/** Context in use; `estimated` until a response measures it. */
+interface Context {
+	tokens: number | null;
+	window: number;
+	estimated: boolean;
+}
+
+type Message = Parameters<typeof host.estimateTokens>[0];
+
+/** pi's characters/4 estimate of a projected context: the system prompt as it stands, plus every other message. */
+function estimateSize(messages: Message[]): number {
+	const system =
+		typeof ai.getCurrentSystemMessage === "function"
+			? (ai.getCurrentSystemMessage(messages as Parameters<typeof ai.getCurrentSystemMessage>[0]) as Message | undefined)
+			: [...messages].reverse().find((m) => m.role === "system");
+	let tokens = system ? host.estimateTokens(system) : 0;
+	for (const m of messages) if (m.role !== "system") tokens += host.estimateTokens(m);
+	return tokens;
+}
+
 export default function runway(pi: ExtensionAPI) {
 	let ctx: ExtensionContext | undefined;
 	let footer: ReadonlyFooterDataProvider | undefined;
@@ -60,8 +91,9 @@ export default function runway(pi: ExtensionAPI) {
 	let editorFactory: Parameters<ExtensionContext["ui"]["setEditorComponent"]>[0];
 
 	// Session-derived state, refreshed on events — never by scanning in render().
-	let usage: ContextUsage | undefined;
-	let cost = 0;
+	let context: Context | undefined;
+	/** Estimated context size with a given response as the leaf. Entries are append-only: these never change. */
+	const estimates = new Map<string, number>();
 	let latest: MessageLike | undefined;
 	let ends: number[] = [];
 	let multiProvider = false;
@@ -83,12 +115,36 @@ export default function runway(pi: ExtensionAPI) {
 	let gitTimer: ReturnType<typeof setTimeout> | undefined;
 	let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
+	/**
+	 * pi's figure, unless a compaction or context edit came after the latest response. pi then knows nothing
+	 * (compaction) or guesses from characters, about half the real size for some models. Instead: the same estimate,
+	 * scaled by how far it was off for the latest responses, until the next response measures the context again.
+	 */
+	function contextNow(c: ExtensionContext): Context | undefined {
+		const u = c.getContextUsage();
+		if (!u) return undefined;
+		const branch = c.sessionManager.getBranch();
+		if (measured(branch)) return { tokens: u.tokens, window: u.contextWindow, estimated: false };
+		const project = host.buildSessionProjection;
+		if (typeof project !== "function" || typeof host.estimateTokens !== "function") {
+			return { tokens: u.tokens, window: u.contextWindow, estimated: true };
+		}
+		const entries = c.sessionManager.getEntries();
+		const ratio = calibration(branch, (id) => {
+			let n = estimates.get(id);
+			if (n === undefined) estimates.set(id, (n = estimateSize(project(entries, id).messages)));
+			return n;
+		});
+		const tokens =
+			ratio === undefined ? u.tokens : Math.round(ratio * estimateSize(project(entries, c.sessionManager.getLeafId()).messages));
+		return { tokens, window: u.contextWindow, estimated: true };
+	}
+
 	function refresh() {
 		refreshTimer = undefined;
 		const c = ctx;
 		if (!c) return;
-		usage = c.getContextUsage();
-		cost = totalCost(c.sessionManager.getEntries());
+		context = contextNow(c);
 		const branch = c.sessionManager.getBranch();
 		latest = latestResponse(branch);
 		// A half-finished run would skew the growth estimate.
@@ -165,13 +221,6 @@ export default function runway(pi: ExtensionAPI) {
 		anim = gitTimer = refreshTimer = undefined;
 	}
 
-	function isSubscription(provider: string | undefined): boolean {
-		if (!provider || !ctx) return false;
-		if (provider === "kimi-coding") return true; // subscription-backed despite API-key auth (as in pi's footer)
-		// isUsingOAuth only reads model.provider.
-		return ctx.modelRegistry.isUsingOAuth({ provider } as Model<Api>);
-	}
-
 	function view(): View {
 		const c = ctx;
 		const model = c?.model;
@@ -185,8 +234,9 @@ export default function runway(pi: ExtensionAPI) {
 			.map(([, text]) => sanitize(text))
 			.filter(Boolean);
 		const branch = footer?.getGitBranch() ?? undefined;
-		const pct = usage?.percent ?? null;
-		const window = usage?.contextWindow ?? 0;
+		const window = context?.window ?? 0;
+		const tokens = context?.tokens ?? null;
+		const pct = tokens !== null && window > 0 ? (tokens / window) * 100 : null;
 		const growth = runGrowth(ends);
 		const busy = animating();
 		// pi spells the key "escape"; the keycap says "esc".
@@ -204,9 +254,9 @@ export default function runway(pi: ExtensionAPI) {
 			state: prompts > 0 ? "you" : runState,
 			hint: interrupt ? `${interrupt} to interrupt` : undefined,
 			pct,
+			estimated: pct !== null && context?.estimated ? true : undefined,
 			next: growth && window > 0 ? (growth / window) * 100 : undefined,
-			turns: turnsLeft(ends, usage?.tokens ?? null, window),
-			cost: cost >= 0.005 && !isSubscription(provider) ? cost : undefined,
+			turns: turnsLeft(ends, tokens, window),
 		};
 	}
 
@@ -377,6 +427,7 @@ export default function runway(pi: ExtensionAPI) {
 	pi.on("session_start", (_e, c) => {
 		stopTimers();
 		ctx = c;
+		estimates.clear();
 		runState = "idle";
 		prompts = 0;
 		compacting = false;

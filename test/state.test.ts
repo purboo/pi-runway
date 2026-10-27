@@ -1,5 +1,15 @@
 import { expect, test } from "bun:test";
-import { displayPath, type EntryLike, latestResponse, runEnds, runGrowth, sanitize, totalCost, turnsLeft } from "../src/state.ts";
+import {
+	calibration,
+	displayPath,
+	type EntryLike,
+	latestResponse,
+	measured,
+	runEnds,
+	runGrowth,
+	sanitize,
+	turnsLeft,
+} from "../src/state.ts";
 
 const usage = (tokens: number, cost = 0) => ({ input: tokens, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: tokens, cost: { total: cost } });
 const user = (): EntryLike => ({ type: "message", message: { role: "user" } });
@@ -28,18 +38,6 @@ test("turnsLeft needs two growth samples", () => {
 	expect(turnsLeft([800, 900, 990], 990, 1000)).toBe(0);
 });
 
-test("totalCost counts every spend", () => {
-	const entries: EntryLike[] = [
-		user(),
-		asst(1, 0.1),
-		{ type: "message", message: { role: "toolResult", usage: usage(1, 0.02) } },
-		{ type: "compaction", usage: usage(1, 0.03) },
-		{ type: "usage", usage: usage(1, 0.05) },
-		{ type: "model_change" },
-	];
-	expect(totalCost(entries)).toBeCloseTo(0.2);
-});
-
 test("latestResponse ignores aborted", () => {
 	const b = [asst(1, 0, { model: "a" }), asst(1, 0, { model: "b", stopReason: "aborted" })];
 	expect(latestResponse(b)?.model).toBe("a");
@@ -56,6 +54,30 @@ test("runGrowth", () => {
 	expect(runGrowth([100, 200])).toBeUndefined();
 	expect(runGrowth([100, 200, 300])).toBe(100);
 	expect(runGrowth([300, 200, 100])).toBeUndefined();
+});
+
+test("measured: only a response after the latest compaction or context edit measures the context", () => {
+	const a = { ...asst(100), id: "a" };
+	expect(measured([user(), a])).toBe(true);
+	expect(measured([user(), a, user()])).toBe(true);
+	expect(measured([user(), a, { type: "compaction" }])).toBe(false);
+	expect(measured([user(), a, { type: "context_edit" }, user()])).toBe(false);
+	expect(measured([user(), a, { type: "compaction" }, user(), { ...asst(40), id: "b" }])).toBe(true);
+	expect(measured([user(), a, { type: "compaction" }, { ...asst(40, 0, { stopReason: "error" }), id: "b" }])).toBe(false);
+	expect(measured([user()])).toBe(false);
+});
+
+test("calibration: median real/estimate over the latest five responses", () => {
+	const estimate: Record<string, number> = { a: 100, b: 100, c: 100, d: 100, e: 100, f: 100 };
+	const at = (id: string) => estimate[id] ?? 0;
+	const r = (id: string, real: number) => ({ ...asst(real), id });
+	// a is the sixth from the end: left out. One odd sample (c) does not move the median.
+	const branch = [r("a", 900), user(), r("b", 200), r("c", 500), user(), r("d", 190), r("e", 210), { type: "compaction" }, r("f", 205)];
+	expect(calibration(branch, at)).toBe(2.05);
+	expect(calibration(branch.slice(0, 7), at)).toBe(2.1);
+	// failed responses and responses without an estimate are not samples
+	expect(calibration([r("a", 300), { ...asst(999, 0, { stopReason: "aborted" }), id: "b" }, r("x", 999)], at)).toBe(3);
+	expect(calibration([user()], at)).toBeUndefined();
 });
 
 test("sanitize", () => {

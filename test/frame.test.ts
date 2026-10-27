@@ -28,9 +28,10 @@ test("every border is exactly the width, in every state, at every width", () => 
 		{ ...base, branch: "feat/runway", dirty: true, statuses: ["mcp 3"], provider: "relay", thinking: "high" },
 		{ ...base, state: "run", hint: "esc to interrupt", moreAbove: 3, moreBelow: 2 },
 		{ ...base, state: "you" },
-		{ ...base, state: "err", pct: 93, next: 5, turns: 1, cost: 1.38 },
+		{ ...base, state: "err", pct: 93, next: 5, turns: 1 },
 		{ ...base, routed: true, model: "Opus 4.6", pct: null },
-		{ ...base, pct: 78, next: 5.5, turns: 4, cost: 1.2 },
+		{ ...base, pct: 78, next: 5.5, turns: 4 },
+		{ ...base, pct: 91, estimated: true, turns: 1 },
 	];
 	for (const v of views) {
 		for (let w = 16; w <= 200; w++) {
@@ -60,8 +61,8 @@ test("turns and the next-run ghost appear only from 70%", () => {
 	const quiet = { ...base, pct: 50, next: 5, turns: 9 };
 	expect(text(bottom(quiet, 100, m))).not.toContain("turn");
 	expect(text(bottom(quiet, 100, m))).not.toContain("╍");
-	const tight = { ...base, pct: 78, next: 5, turns: 4, cost: 1.2 };
-	expect(text(bottom(tight, 100, m))).toContain("78%  ≈4 turns  $1.20 ─╯");
+	const tight = { ...base, pct: 78, next: 5, turns: 4 };
+	expect(text(bottom(tight, 100, m))).toContain("78%  ≈4 turns ─╯");
 	expect(text(bottom(tight, 100, m))).toContain("╍");
 	expect(text(bottom({ ...tight, turns: 1 }, 100, m))).toContain("≈1 turn ");
 });
@@ -72,6 +73,11 @@ test("runway: unknown usage draws an empty track; any usage shows at least one c
 	expect(text(runway({ ...base, pct: 100 }, 10))).toBe("━".repeat(10));
 	const cells = runway({ ...base, pct: 50 }, 10).filter((g) => g.heat !== undefined);
 	expect(cells.map((g) => g.heat)).toEqual([0.05, 0.15, 0.25, 0.35, 0.45]);
+});
+
+test("an estimated figure says so", () => {
+	expect(text(bottom({ ...base, pct: 18.4, estimated: true }, 100, m))).toContain("─ ~18% ─╯");
+	expect(text(runway({ ...base, pct: 50, estimated: true }, 10))).toBe("━".repeat(5) + "─".repeat(5));
 });
 
 test("alert thresholds", () => {
